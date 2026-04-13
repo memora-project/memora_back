@@ -1,0 +1,4 @@
+Enum 이름,값,설명
+gender_type,"MALE, FEMALE, OTHER",성별
+mood_type,"GREAT, CALM, UNKNOWN, SAD, ANGRY, PAIN",기분 (최고/평온/모르겠어요/슬퍼요/화나요/몸이 안 좋아요)
+diary_status,"IN_PROGRESS, COMPLETED",일기 상태 (작성중/완료)

@@ -1,0 +1,160 @@
+package com.memora.server.service;
+
+import com.memora.server.dto.segment.SegmentCreateRequest;
+import com.memora.server.dto.segment.SegmentResponse;
+import com.memora.server.dto.segment.SegmentUpdateRequest;
+import com.memora.server.entity.Diary;
+import com.memora.server.entity.DiarySegment;
+import com.memora.server.repository.DiaryRepository;
+import com.memora.server.repository.DiarySegmentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * 중간 기록 관련 비즈니스 로직
+ *
+ * 중간 기록 추가/수정/삭제/순서 변경
+ * 모든 작업에서 "본인 일기인지" 확인
+ */
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class SegmentService {
+
+    private final DiaryRepository diaryRepository;
+    private final DiarySegmentRepository segmentRepository;
+
+    /**
+     * 중간 기록 추가
+     *
+     * 해당 일기에 속한 세그먼트 개수를 세서 다음 순서(stepOrder)를 자동 부여
+     * 예: 이미 2개 있으면 → stepOrder = 3
+     */
+    @Transactional
+    public SegmentResponse createSegment(Long userId, Long diaryId, SegmentCreateRequest request) {
+        Diary diary = findDiaryByIdAndUser(diaryId, userId);
+
+        // 현재 세그먼트 개수로 다음 순서 계산
+        List<DiarySegment> existing = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
+        int nextOrder = existing.size() + 1;
+
+        DiarySegment segment = DiarySegment.builder()
+                .diary(diary)
+                .stepOrder(nextOrder)
+                .moodSnapshot(request.getMoodSnapshot())
+                .photoUrl(request.getPhotoUrl())
+                .takenAt(request.getTakenAt())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .locationName(request.getLocationName())
+                .build();
+
+        return SegmentResponse.from(segmentRepository.save(segment));
+    }
+
+    /**
+     * 특정 일기의 중간 기록 목록 조회 (순서대로)
+     */
+    public List<SegmentResponse> getSegments(Long userId, Long diaryId) {
+        Diary diary = findDiaryByIdAndUser(diaryId, userId);
+
+        return segmentRepository.findByDiaryOrderByStepOrderAsc(diary)
+                .stream()
+                .map(SegmentResponse::from)
+                .toList();
+    }
+
+    /**
+     * 중간 기록 수정
+     *
+     * 기분, 내용을 수정 가능
+     * AI 초안을 확인 후 사용자가 수정할 때 사용
+     */
+    @Transactional
+    public SegmentResponse updateSegment(Long userId, Long diaryId, Long segmentId, SegmentUpdateRequest request) {
+        DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
+        segment.update(request.getMoodSnapshot(), request.getUserContent());
+        return SegmentResponse.from(segment);
+    }
+
+    /**
+     * 중간 기록 삭제
+     *
+     * 삭제 후 남은 세그먼트들의 순서를 재정렬
+     * 예: 1, 2, 3 중 2번 삭제 → 1, 2로 재정렬
+     */
+    @Transactional
+    public void deleteSegment(Long userId, Long diaryId, Long segmentId) {
+        DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
+        Diary diary = segment.getDiary();
+
+        segmentRepository.delete(segment);
+
+        // 남은 세그먼트 순서 재정렬
+        List<DiarySegment> remaining = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
+        for (int i = 0; i < remaining.size(); i++) {
+            remaining.get(i).updateStepOrder(i + 1);
+        }
+    }
+
+    /**
+     * 중간 기록 순서 변경
+     *
+     * 프론트에서 [3, 1, 2] 순서로 segmentId를 보내면
+     * → 세그먼트3: stepOrder=1, 세그먼트1: stepOrder=2, 세그먼트2: stepOrder=3
+     */
+    @Transactional
+    public List<SegmentResponse> reorderSegments(Long userId, Long diaryId, List<Long> segmentIds) {
+        Diary diary = findDiaryByIdAndUser(diaryId, userId);
+
+        for (int i = 0; i < segmentIds.size(); i++) {
+            DiarySegment segment = segmentRepository.findById(segmentIds.get(i))
+                    .orElseThrow(() -> new IllegalArgumentException("중간 기록을 찾을 수 없습니다."));
+
+            if (!segment.getDiary().getDiaryId().equals(diary.getDiaryId())) {
+                throw new IllegalArgumentException("해당 일기의 중간 기록이 아닙니다.");
+            }
+
+            segment.updateStepOrder(i + 1);
+        }
+
+        return segmentRepository.findByDiaryOrderByStepOrderAsc(diary)
+                .stream()
+                .map(SegmentResponse::from)
+                .toList();
+    }
+
+    /**
+     * diaryId + userId로 일기 찾기 (본인 확인)
+     */
+    private Diary findDiaryByIdAndUser(Long diaryId, Long userId) {
+        Diary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다."));
+
+        if (!diary.getUser().getUserId().equals(userId)) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+        return diary;
+    }
+
+    /**
+     * segmentId + diaryId + userId로 세그먼트 찾기 (본인 확인)
+     */
+    private DiarySegment findSegmentByIdAndUser(Long segmentId, Long diaryId, Long userId) {
+        DiarySegment segment = segmentRepository.findById(segmentId)
+                .orElseThrow(() -> new IllegalArgumentException("중간 기록을 찾을 수 없습니다."));
+
+        if (!segment.getDiary().getDiaryId().equals(diaryId)) {
+            throw new IllegalArgumentException("해당 일기의 중간 기록이 아닙니다.");
+        }
+
+        if (!segment.getDiary().getUser().getUserId().equals(userId)) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+
+        return segment;
+    }
+}

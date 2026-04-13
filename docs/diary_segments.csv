@@ -1,0 +1,14 @@
+컬럼명,데이터 타입,제약 조건,설명
+segment_id,BIGSERIAL,PK,중간 일기 고유 ID
+diary_id,BIGINT,"FK → diaries(diary_id), NOT NULL",소속 일기
+step_order,INTEGER,NOT NULL,순서 (1 2 3...)
+mood_snapshot,mood_type,NOT NULL,기분 선택
+photo_url,VARCHAR(500),,사진 URL
+taken_at,TIMESTAMPTZ,,사진 촬영 시간 (메타데이터)
+latitude,DECIMAL,,위도 (메타데이터)
+longitude,DECIMAL,,경도 (메타데이터)
+location_name,VARCHAR(300),,위치명
+ai_draft,TEXT,,AI가 생성한 중간 일기 초안
+user_content,TEXT,,사용자가 컨펌/수정한 내용
+is_edited,BOOLEAN,DEFAULT FALSE,사용자 수정 여부
+created_at,TIMESTAMPTZ,DEFAULT NOW(),생성일시

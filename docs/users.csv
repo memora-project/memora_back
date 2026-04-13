@@ -1,0 +1,13 @@
+컬럼명,데이터 타입,제약 조건,설명
+user_id,BIGSERIAL,PK,사용자 고유 ID
+login_id,VARCHAR(50),UNIQUE,로그인 ID (이메일)
+password,VARCHAR(255),,비밀번호 (카카오 유저는 NULL)
+kakao_id,VARCHAR(255),UNIQUE,카카오 로그인 고유 ID
+phone_number,VARCHAR(15),,전화번호
+name,VARCHAR(20),NOT NULL,이름
+gender,gender_type,NOT NULL,성별 (MALE/FEMALE/OTHER)
+birth_date,DATE,NOT NULL,생년월일
+address,VARCHAR(255),,주소 (대전 내 동네)
+emergency_contact,VARCHAR(15),,비상연락처
+is_report_shared,BOOLEAN,DEFAULT FALSE,비상연락처에 리포트 공유 동의
+created_at,TIMESTAMPTZ,DEFAULT NOW(),가입일시

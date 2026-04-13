@@ -20,7 +20,7 @@ public class DiarySegment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "diary_id", nullable = false)
-    private Diary diary; // 어떤 일기의 조각인지 연결
+    private Diary diary;
 
     @Column(nullable = false)
     private Integer stepOrder;
@@ -41,5 +41,34 @@ public class DiarySegment {
     private String locationName;
 
     @Column(columnDefinition = "TEXT")
-    private String aiComment;
+    private String aiDraft;
+
+    @Column(columnDefinition = "TEXT")
+    private String userContent;
+
+    @Builder.Default
+    private Boolean isEdited = false;
+
+    @Builder.Default
+    @Column(updatable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    /**
+     * 중간 기록 수정
+     * 기분, 사용자 내용 업데이트
+     */
+    public void update(MoodType moodSnapshot, String userContent) {
+        if (moodSnapshot != null) this.moodSnapshot = moodSnapshot;
+        if (userContent != null) {
+            this.userContent = userContent;
+            this.isEdited = true;
+        }
+    }
+
+    /**
+     * 순서 변경
+     */
+    public void updateStepOrder(int stepOrder) {
+        this.stepOrder = stepOrder;
+    }
 }

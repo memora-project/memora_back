@@ -1,0 +1,11 @@
+컬럼명,데이터 타입,제약 조건,설명
+diary_id,BIGSERIAL,PK,일기 고유 ID
+user_id,BIGINT,"FK → users(user_id), NOT NULL",작성자
+target_date,DATE,NOT NULL,일기 대상 날짜
+final_mood,mood_type,,하루 최종 기분
+ai_draft,TEXT,,AI가 생성한 최종 일기 초안
+final_content,TEXT,,사용자가 컨펌/수정한 최종 내용
+is_edited,BOOLEAN,DEFAULT FALSE,사용자 수정 여부
+status,diary_status,"NOT NULL, DEFAULT 'IN_PROGRESS'",상태 (IN_PROGRESS/COMPLETED)
+created_at,TIMESTAMPTZ,DEFAULT NOW(),생성일시
+updated_at,TIMESTAMPTZ,DEFAULT NOW(),수정일시
