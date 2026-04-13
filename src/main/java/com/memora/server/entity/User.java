@@ -10,8 +10,8 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(name = "users")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED) // 무분별한 객체 생성을 막기 위해 보호
-@AllArgsConstructor // 모든 필드를 포함한 생성자 (Builder를 위해 필요)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 @Builder
 public class User {
 
@@ -19,24 +19,24 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userId;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(unique = true, length = 50)
     private String loginId;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String password;
 
-    @Column(nullable = false, length = 20)
+    @Column(unique = true)
+    private String kakaoId;
+
+    @Column(length = 15)
     private String phoneNumber;
 
     @Column(nullable = false, length = 20)
     private String name;
 
-    // gender_type은 DB의 ENUM이므로 String으로 받거나 별도의 Enum 클래스를 연결합니다.
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private GenderType gender;
 
-    @Column(nullable = false)
     private LocalDate birthDate;
 
     private String address;
@@ -44,8 +44,55 @@ public class User {
     @Column(length = 15)
     private String emergencyContact;
 
+    @Column(length = 500)
+    private String refreshToken;
+
+    @Column(length = 500)
+    private String resetToken;
+
+    @Builder.Default
+    private Boolean isReportShared = false;
+
     @Builder.Default
     @Column(updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
-    // 빌더 패턴이나 생성자를 추가해서 데이터를 넣을 수 있게 만들 수 있습니다.
+
+    /**
+     * Refresh Token 업데이트
+     * 로그인 시 저장, 로그아웃 시 null로 삭제
+     */
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
+    /**
+     * 회원 정보 수정
+     * null이 아닌 필드만 업데이트 (PATCH 방식)
+     */
+    public void updateProfile(String name, GenderType gender, LocalDate birthDate,
+                              String phoneNumber, String address,
+                              String emergencyContact, Boolean isReportShared) {
+        if (name != null) this.name = name;
+        if (gender != null) this.gender = gender;
+        if (birthDate != null) this.birthDate = birthDate;
+        if (phoneNumber != null) this.phoneNumber = phoneNumber;
+        if (address != null) this.address = address;
+        if (emergencyContact != null) this.emergencyContact = emergencyContact;
+        if (isReportShared != null) this.isReportShared = isReportShared;
+    }
+
+    /**
+     * 비밀번호 재설정 토큰 저장
+     */
+    public void updateResetToken(String resetToken) {
+        this.resetToken = resetToken;
+    }
+
+    /**
+     * 비밀번호 변경
+     */
+    public void updatePassword(String password) {
+        this.password = password;
+        this.resetToken = null;  // 비밀번호 변경 후 리셋 토큰 삭제
+    }
 }

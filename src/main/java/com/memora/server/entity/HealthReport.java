@@ -43,4 +43,11 @@ public class HealthReport {
     @Builder.Default
     @Column(updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    /**
+     * 리포트 공유 처리
+     */
+    public void share() {
+        this.isShared = true;
+    }
 }
