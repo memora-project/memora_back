@@ -66,6 +66,13 @@ public class DiarySegment {
     }
 
     /**
+     * AI 초안 저장 (재생성 시 덮어쓰기)
+     */
+    public void updateAiDraft(String aiDraft) {
+        this.aiDraft = aiDraft;
+    }
+
+    /**
      * 순서 변경
      */
     public void updateStepOrder(int stepOrder) {
