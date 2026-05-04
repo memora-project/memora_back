@@ -38,3 +38,8 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-validity: 1800000
   refresh-token-validity: 604800000
+
+openrouter:
+  api-key: ${OPENROUTER_API_KEY}
+  endpoint: https://openrouter.ai/api/v1/chat/completions
+  model: google/gemini-2.5-flash
