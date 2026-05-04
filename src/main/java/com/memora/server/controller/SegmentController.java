@@ -2,6 +2,7 @@ package com.memora.server.controller;
 
 import com.memora.server.dto.segment.*;
 import com.memora.server.service.SegmentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +36,7 @@ public class SegmentController {
     @PostMapping
     public ResponseEntity<SegmentResponse> createSegment(
             @PathVariable Integer diaryId,
-            @RequestBody SegmentCreateRequest request) {
+            @Valid @RequestBody SegmentCreateRequest request) {
         Integer userId = getCurrentUserId();
         SegmentResponse response = segmentService.createSegment(userId, diaryId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

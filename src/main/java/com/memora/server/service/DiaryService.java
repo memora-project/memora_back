@@ -3,10 +3,8 @@ package com.memora.server.service;
 import com.memora.server.dto.diary.DiaryResponse;
 import com.memora.server.dto.diary.DiaryUpdateRequest;
 import com.memora.server.entity.Diary;
-import com.memora.server.entity.DiarySegment;
 import com.memora.server.entity.User;
 import com.memora.server.repository.DiaryRepository;
-import com.memora.server.repository.DiarySegmentRepository;
 import com.memora.server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +25,6 @@ import java.util.List;
 public class DiaryService {
 
     private final DiaryRepository diaryRepository;
-    private final DiarySegmentRepository segmentRepository;
     private final UserRepository userRepository;
 
     /**
@@ -120,17 +117,12 @@ public class DiaryService {
     /**
      * 일기 삭제
      *
-     * diary_segments.diary_id 가 FK로 diaries.diary_id 를 참조하므로
-     * 그냥 diary를 지우면 ConstraintViolation 발생.
-     * → 자식인 segments를 먼저 삭제한 뒤 부모(diary)를 삭제한다.
+     * Diary 엔티티에 cascade = ALL, orphanRemoval = true 설정으로
+     * 일기 삭제 시 중간기록(segments)도 자동 삭제됨
      */
     @Transactional
     public void deleteDiary(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
-        List<DiarySegment> segments = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
-        if (!segments.isEmpty()) {
-            segmentRepository.deleteAll(segments);
-        }
         diaryRepository.delete(diary);
     }
 

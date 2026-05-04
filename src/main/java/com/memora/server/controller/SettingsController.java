@@ -3,6 +3,7 @@ package com.memora.server.controller;
 import com.memora.server.dto.settings.SettingsResponse;
 import com.memora.server.dto.settings.SettingsUpdateRequest;
 import com.memora.server.service.SettingsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,7 +42,7 @@ public class SettingsController {
      * 요청: { fontSize: "MEDIUM" }
      */
     @PatchMapping
-    public ResponseEntity<SettingsResponse> updateSettings(@RequestBody SettingsUpdateRequest request) {
+    public ResponseEntity<SettingsResponse> updateSettings(@Valid @RequestBody SettingsUpdateRequest request) {
         Integer userId = getCurrentUserId();
         SettingsResponse response = settingsService.updateSettings(userId, request);
         return ResponseEntity.ok(response);

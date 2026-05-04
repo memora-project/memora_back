@@ -48,7 +48,13 @@ public class FileService {
             throw new IllegalArgumentException("파일이 비어있습니다.");
         }
 
-        // 2. 확장자 검증
+        // 2. MIME 타입 검증
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("이미지 파일만 업로드 가능합니다.");
+        }
+
+        // 3. 확장자 검증
         String originalFilename = file.getOriginalFilename();
         String extension = getExtension(originalFilename);
 

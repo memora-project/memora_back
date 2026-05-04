@@ -145,9 +145,7 @@ public class ReportService {
         int activityScore = completedDiaries.size();
 
         // 5. 기존 리포트가 있으면 가져오고, 없으면 새로 생성
-        HealthReport report = reportRepository.findByUserOrderByEndDateDesc(user).stream()
-                .filter(r -> r.getStartDate().equals(startDate) && r.getEndDate().equals(endDate))
-                .findFirst()
+        HealthReport report = reportRepository.findByUserAndStartDateAndEndDate(user, startDate, endDate)
                 .orElseGet(() -> {
                     HealthReport newReport = HealthReport.builder()
                             .user(user)

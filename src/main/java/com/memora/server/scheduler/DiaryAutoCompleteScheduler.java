@@ -33,7 +33,7 @@ public class DiaryAutoCompleteScheduler {
      * 매일 자정(00:00) 실행
      * 전날(어제) 날짜의 IN_PROGRESS 일기를 COMPLETED로 변경
      */
-    @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     @Transactional
     public void autoCompleteDiaries() {
         LocalDate yesterday = LocalDate.now().minusDays(1);
