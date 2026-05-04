@@ -105,6 +105,19 @@ public class DiaryController {
         return ResponseEntity.ok(Map.of("message", "일기가 삭제되었습니다."));
     }
 
+    /**
+     * 마무리(final) 일기만 삭제 — segments는 유지.
+     * DELETE /api/v1/diaries/{diaryId}/final
+     *
+     * 응답: 비워진 상태의 DiaryResponse (status=IN_PROGRESS, finalMood/finalContent=null)
+     */
+    @DeleteMapping("/{diaryId}/final")
+    public ResponseEntity<DiaryResponse> deleteFinalDiary(@PathVariable Integer diaryId) {
+        Integer userId = getCurrentUserId();
+        DiaryResponse response = diaryService.deleteFinalDiary(userId, diaryId);
+        return ResponseEntity.ok(response);
+    }
+
     private Integer getCurrentUserId() {
         return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
