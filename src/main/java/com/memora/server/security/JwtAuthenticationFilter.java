@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 2단계: 토큰이 있고 유효하면 → 인증 정보 등록
         if (token != null && jwtTokenProvider.validateToken(token)) {
-            Long userId = jwtTokenProvider.getUserId(token);
+            Integer userId = jwtTokenProvider.getUserId(token);
 
             // Spring Security에 "이 사용자는 인증됨" 이라고 알려주는 객체
             // - principal: userId (누구인지)

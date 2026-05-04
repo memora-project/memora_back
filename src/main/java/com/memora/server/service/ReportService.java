@@ -44,7 +44,7 @@ public class ReportService {
      * 리포트가 없으면 새로 생성
      */
     @Transactional
-    public ReportResponse getWeeklyReport(Long userId) {
+    public ReportResponse getWeeklyReport(Integer userId) {
         User user = findUserById(userId);
 
         // 이번 주 월~일 계산
@@ -62,7 +62,7 @@ public class ReportService {
      * 리포트가 없으면 새로 생성
      */
     @Transactional
-    public ReportResponse getMonthlyReport(Long userId) {
+    public ReportResponse getMonthlyReport(Integer userId) {
         User user = findUserById(userId);
 
         YearMonth yearMonth = YearMonth.now();
@@ -79,7 +79,7 @@ public class ReportService {
      * (실제 전송 로직은 추후 구현 - 카카오 메시지, 문자 등)
      */
     @Transactional
-    public ReportResponse shareReport(Long userId, Long reportId) {
+    public ReportResponse shareReport(Integer userId, Integer reportId) {
         HealthReport report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new IllegalArgumentException("리포트를 찾을 수 없습니다."));
 
@@ -88,7 +88,23 @@ public class ReportService {
         }
 
         report.share();
-        return ReportResponse.from(report, Map.of(), 0);
+
+        // 리포트 기간에 해당하는 기분 분포 재계산
+        User user = report.getUser();
+        List<Diary> completedDiaries = diaryRepository
+                .findByUserAndStatusAndTargetDateBetween(user, DiaryStatus.COMPLETED,
+                        report.getStartDate(), report.getEndDate());
+
+        Map<String, Long> moodDistribution = completedDiaries.stream()
+                .filter(d -> d.getFinalMood() != null)
+                .collect(Collectors.groupingBy(d -> d.getFinalMood().name(), Collectors.counting()));
+
+        Map<String, Long> fullDistribution = new LinkedHashMap<>();
+        for (MoodType mood : MoodType.values()) {
+            fullDistribution.put(mood.name(), moodDistribution.getOrDefault(mood.name(), 0L));
+        }
+
+        return ReportResponse.from(report, fullDistribution, completedDiaries.size());
     }
 
     /**
@@ -146,7 +162,7 @@ public class ReportService {
         return ReportResponse.from(report, fullDistribution, activityScore);
     }
 
-    private User findUserById(Long userId) {
+    private User findUserById(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }

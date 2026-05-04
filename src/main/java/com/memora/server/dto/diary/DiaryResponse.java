@@ -29,7 +29,7 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class DiaryResponse {
 
-    private Long diaryId;
+    private Integer diaryId;
     private LocalDate targetDate;
     private MoodType finalMood;
     private String aiDraft;

@@ -29,7 +29,7 @@ public class SettingsController {
      */
     @GetMapping
     public ResponseEntity<SettingsResponse> getSettings() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         SettingsResponse response = settingsService.getSettings(userId);
         return ResponseEntity.ok(response);
     }
@@ -42,13 +42,13 @@ public class SettingsController {
      */
     @PatchMapping
     public ResponseEntity<SettingsResponse> updateSettings(@RequestBody SettingsUpdateRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         SettingsResponse response = settingsService.updateSettings(userId, request);
         return ResponseEntity.ok(response);
     }
 
-    private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer getCurrentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }

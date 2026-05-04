@@ -16,7 +16,7 @@ public class DiarySegment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long segmentId;
+    private Integer segmentId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "diary_id", nullable = false)

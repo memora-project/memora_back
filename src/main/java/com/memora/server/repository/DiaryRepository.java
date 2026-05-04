@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DiaryRepository extends JpaRepository<Diary, Long> {
+public interface DiaryRepository extends JpaRepository<Diary, Integer> {
 
     Optional<Diary> findByUserAndTargetDate(User user, LocalDate targetDate);
 
@@ -24,4 +24,7 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     // 리포트용: 특정 기간의 완료된 일기만 조회
     List<Diary> findByUserAndStatusAndTargetDateBetween(
             User user, DiaryStatus status, LocalDate startDate, LocalDate endDate);
+
+    // 자정 스케줄러용: 특정 날짜의 IN_PROGRESS 일기 조회
+    List<Diary> findByStatusAndTargetDate(DiaryStatus status, LocalDate targetDate);
 }

@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "diaries")
@@ -17,7 +19,7 @@ public class Diary {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long diaryId;
+    private Integer diaryId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -35,9 +37,13 @@ public class Diary {
     @Column(columnDefinition = "TEXT")
     private String finalContent;
 
+    // 일기 삭제 시 중간기록 자동 삭제
+    @OneToMany(mappedBy = "diary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DiarySegment> segments = new ArrayList<>();
+
     @Builder.Default
     private Boolean isEdited = false;
-
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -1,5 +1,6 @@
 package com.memora.server.controller;
 
+import com.memora.server.dto.user.FcmTokenRequest;
 import com.memora.server.dto.user.UserResponse;
 import com.memora.server.dto.user.UserUpdateRequest;
 import com.memora.server.service.UserService;
@@ -34,7 +35,7 @@ public class UserController {
      */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyInfo() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(response);
     }
@@ -48,9 +49,23 @@ public class UserController {
      */
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateMyInfo(@RequestBody UserUpdateRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         UserResponse response = userService.updateMyInfo(userId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * FCM 토큰 등록
+     * POST /api/v1/users/me/fcm-token
+     *
+     * 프론트에서 Firebase 토큰을 받아서 서버에 저장
+     * 요청: { fcmToken: "dK8x..." }
+     */
+    @PostMapping("/me/fcm-token")
+    public ResponseEntity<Map<String, String>> updateFcmToken(@RequestBody FcmTokenRequest request) {
+        Integer userId = getCurrentUserId();
+        userService.updateFcmToken(userId, request.getFcmToken());
+        return ResponseEntity.ok(Map.of("message", "FCM 토큰이 등록되었습니다."));
     }
 
     /**
@@ -61,7 +76,7 @@ public class UserController {
      */
     @DeleteMapping("/me")
     public ResponseEntity<Map<String, String>> deleteUser() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         userService.deleteUser(userId);
         return ResponseEntity.ok(Map.of("message", "탈퇴 처리되었습니다."));
     }
@@ -72,8 +87,8 @@ public class UserController {
      * JwtAuthenticationFilter에서 SecurityContext에 저장한 인증 정보에서
      * principal(= userId)을 꺼냄
      */
-    private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer getCurrentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }

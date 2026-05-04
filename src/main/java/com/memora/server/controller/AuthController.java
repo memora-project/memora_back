@@ -1,5 +1,6 @@
 package com.memora.server.controller;
 
+import jakarta.validation.Valid;
 import com.memora.server.dto.auth.KakaoLoginRequest;
 import com.memora.server.dto.auth.LoginRequest;
 import com.memora.server.dto.auth.RefreshRequest;
@@ -7,6 +8,7 @@ import com.memora.server.dto.auth.ResetPasswordConfirmRequest;
 import com.memora.server.dto.auth.ResetPasswordRequest;
 import com.memora.server.dto.auth.SignupRequest;
 import com.memora.server.dto.auth.TokenResponse;
+import com.memora.server.dto.auth.VerifyCodeRequest;
 import com.memora.server.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,7 +42,7 @@ public class AuthController {
      * HttpStatus.CREATED (201): "새로운 리소스(회원)가 생성됐다"는 의미
      */
     @PostMapping("/signup")
-    public ResponseEntity<TokenResponse> signup(@RequestBody SignupRequest request) {
+    public ResponseEntity<TokenResponse> signup(@Valid @RequestBody SignupRequest request) {
         TokenResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -53,7 +55,7 @@ public class AuthController {
      * 응답: { accessToken, refreshToken }
      */
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
         TokenResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
@@ -103,7 +105,7 @@ public class AuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
-        Long userId = (Long) SecurityContextHolder.getContext()
+        Integer userId = (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
         authService.logout(userId);
         return ResponseEntity.ok(Map.of("message", "로그아웃 되었습니다."));
@@ -124,18 +126,28 @@ public class AuthController {
     }
 
     /**
-     * 비밀번호 재설정 요청
+     * 비밀번호 재설정 요청 - 이메일로 인증번호 발송
      * POST /api/v1/auth/reset-password
      *
-     * 요청: { loginId, phoneNumber }
-     * 응답: { resetToken: "abc123..." }
-     *
-     * 실제 서비스에서는 이메일/문자로 토큰을 보내야 하지만
-     * 지금은 응답으로 바로 반환 (개발용)
+     * 요청: { loginId: "memora@gmail.com" }
+     * 응답: { message: "인증번호가 이메일로 발송되었습니다." }
      */
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, String>> resetPassword(@RequestBody ResetPasswordRequest request) {
-        String resetToken = authService.requestPasswordReset(request.getLoginId(), request.getPhoneNumber());
+        authService.requestPasswordReset(request.getLoginId());
+        return ResponseEntity.ok(Map.of("message", "인증번호가 이메일로 발송되었습니다."));
+    }
+
+    /**
+     * 인증번호 확인
+     * POST /api/v1/auth/verify-code
+     *
+     * 요청: { loginId: "memora@gmail.com", code: "123456" }
+     * 응답: { resetToken: "abc123..." }
+     */
+    @PostMapping("/verify-code")
+    public ResponseEntity<Map<String, String>> verifyCode(@RequestBody VerifyCodeRequest request) {
+        String resetToken = authService.verifyCode(request);
         return ResponseEntity.ok(Map.of("resetToken", resetToken));
     }
 

@@ -4,14 +4,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 비밀번호 재설정 요청 DTO
+ * 이메일 인증번호 확인 요청 DTO
  *
- * loginId(이메일)로 인증번호 발송 요청
- * { "loginId": "memora@gmail.com" }
+ * { "loginId": "memora@gmail.com", "code": "123456" }
  */
 @Getter
 @NoArgsConstructor
-public class ResetPasswordRequest {
+public class VerifyCodeRequest {
 
     private String loginId;
+    private String code;
 }

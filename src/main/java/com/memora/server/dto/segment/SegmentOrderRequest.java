@@ -18,5 +18,5 @@ import java.util.List;
 @NoArgsConstructor
 public class SegmentOrderRequest {
 
-    private List<Long> segmentIds;
+    private List<Integer> segmentIds;
 }

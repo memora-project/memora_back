@@ -24,7 +24,7 @@ public class UserService {
     /**
      * 내 정보 조회
      */
-    public UserResponse getMyInfo(Long userId) {
+    public UserResponse getMyInfo(Integer userId) {
         User user = findUserById(userId);
         return UserResponse.from(user);
     }
@@ -37,7 +37,7 @@ public class UserService {
      * → repository.save() 안 해도 됨!
      */
     @Transactional
-    public UserResponse updateMyInfo(Long userId, UserUpdateRequest request) {
+    public UserResponse updateMyInfo(Integer userId, UserUpdateRequest request) {
         User user = findUserById(userId);
 
         user.updateProfile(
@@ -54,10 +54,20 @@ public class UserService {
     }
 
     /**
+     * FCM 토큰 등록
+     * 프론트에서 Firebase로부터 발급받은 디바이스 토큰을 저장
+     */
+    @Transactional
+    public void updateFcmToken(Integer userId, String fcmToken) {
+        User user = findUserById(userId);
+        user.updateFcmToken(fcmToken);
+    }
+
+    /**
      * 회원 탈퇴
      */
     @Transactional
-    public void deleteUser(Long userId) {
+    public void deleteUser(Integer userId) {
         User user = findUserById(userId);
         userRepository.delete(user);
     }
@@ -65,7 +75,7 @@ public class UserService {
     /**
      * userId로 사용자 찾기 (공통)
      */
-    private User findUserById(Long userId) {
+    private User findUserById(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }

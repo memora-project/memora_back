@@ -21,7 +21,7 @@ import java.time.LocalTime;
 public class UserSettings {
 
     @Id
-    private Long userId;
+    private Integer userId;
 
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
