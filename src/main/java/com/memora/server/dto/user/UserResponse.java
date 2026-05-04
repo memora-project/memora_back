@@ -31,7 +31,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class UserResponse {
 
-    private Long userId;
+    private Integer userId;
     private String loginId;
     private String name;
     private GenderType gender;

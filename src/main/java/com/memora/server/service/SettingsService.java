@@ -29,7 +29,7 @@ public class SettingsService {
      * 설정이 없으면 기본값으로 생성
      */
     @Transactional
-    public SettingsResponse getSettings(Long userId) {
+    public SettingsResponse getSettings(Integer userId) {
         UserSettings settings = getOrCreateSettings(userId);
         return SettingsResponse.from(settings);
     }
@@ -38,7 +38,7 @@ public class SettingsService {
      * 설정 변경
      */
     @Transactional
-    public SettingsResponse updateSettings(Long userId, SettingsUpdateRequest request) {
+    public SettingsResponse updateSettings(Integer userId, SettingsUpdateRequest request) {
         UserSettings settings = getOrCreateSettings(userId);
         settings.update(request.getFontSize(), request.getNotificationEnabled(), request.getReminderTime());
         return SettingsResponse.from(settings);
@@ -50,7 +50,7 @@ public class SettingsService {
      * 회원가입 시 설정을 안 만들어도
      * 처음 설정 조회할 때 자동 생성됨
      */
-    private UserSettings getOrCreateSettings(Long userId) {
+    private UserSettings getOrCreateSettings(Integer userId) {
         return settingsRepository.findById(userId)
                 .orElseGet(() -> {
                     User user = userRepository.findById(userId)

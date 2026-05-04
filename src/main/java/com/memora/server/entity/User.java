@@ -6,6 +6,8 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -17,7 +19,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userId;
+    private Integer userId;
 
     @Column(unique = true, length = 50)
     private String loginId;
@@ -49,6 +51,26 @@ public class User {
 
     @Column(length = 500)
     private String resetToken;
+
+    @Column(length = 6)
+    private String verificationCode;
+
+    private OffsetDateTime verificationCodeExpiry;
+
+    @Column(length = 500)
+    private String fcmToken;
+
+    // 사용자 탈퇴 시 관련 데이터 자동 삭제 (cascade + orphanRemoval)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Diary> diaries = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<HealthReport> healthReports = new ArrayList<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSettings userSettings;
 
     @Builder.Default
     private Boolean isReportShared = false;
@@ -86,6 +108,39 @@ public class User {
      */
     public void updateResetToken(String resetToken) {
         this.resetToken = resetToken;
+    }
+
+    /**
+     * 이메일 인증번호 저장 (5분 유효)
+     */
+    public void updateVerificationCode(String code) {
+        this.verificationCode = code;
+        this.verificationCodeExpiry = OffsetDateTime.now().plusMinutes(5);
+    }
+
+    /**
+     * 인증번호 검증
+     */
+    public boolean isVerificationCodeValid(String code) {
+        return this.verificationCode != null
+                && this.verificationCode.equals(code)
+                && this.verificationCodeExpiry != null
+                && OffsetDateTime.now().isBefore(this.verificationCodeExpiry);
+    }
+
+    /**
+     * 인증번호 초기화
+     */
+    public void clearVerificationCode() {
+        this.verificationCode = null;
+        this.verificationCodeExpiry = null;
+    }
+
+    /**
+     * FCM 토큰 업데이트
+     */
+    public void updateFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
     }
 
     /**

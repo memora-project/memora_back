@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface HealthReportRepository extends JpaRepository<HealthReport, Long> {
+public interface HealthReportRepository extends JpaRepository<HealthReport, Integer> {
     // 특정 유저의 리포트 목록을 최신순으로 조회
     List<HealthReport> findByUserOrderByEndDateDesc(User user);
 }

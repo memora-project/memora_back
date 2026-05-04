@@ -34,7 +34,7 @@ public class SegmentService {
      * 예: 이미 2개 있으면 → stepOrder = 3
      */
     @Transactional
-    public SegmentResponse createSegment(Long userId, Long diaryId, SegmentCreateRequest request) {
+    public SegmentResponse createSegment(Integer userId, Integer diaryId, SegmentCreateRequest request) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
 
         // 현재 세그먼트 개수로 다음 순서 계산
@@ -58,7 +58,7 @@ public class SegmentService {
     /**
      * 특정 일기의 중간 기록 목록 조회 (순서대로)
      */
-    public List<SegmentResponse> getSegments(Long userId, Long diaryId) {
+    public List<SegmentResponse> getSegments(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
 
         return segmentRepository.findByDiaryOrderByStepOrderAsc(diary)
@@ -74,7 +74,7 @@ public class SegmentService {
      * AI 초안을 확인 후 사용자가 수정할 때 사용
      */
     @Transactional
-    public SegmentResponse updateSegment(Long userId, Long diaryId, Long segmentId, SegmentUpdateRequest request) {
+    public SegmentResponse updateSegment(Integer userId, Integer diaryId, Integer segmentId, SegmentUpdateRequest request) {
         DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
         segment.update(request.getMoodSnapshot(), request.getUserContent());
         return SegmentResponse.from(segment);
@@ -87,7 +87,7 @@ public class SegmentService {
      * 예: 1, 2, 3 중 2번 삭제 → 1, 2로 재정렬
      */
     @Transactional
-    public void deleteSegment(Long userId, Long diaryId, Long segmentId) {
+    public void deleteSegment(Integer userId, Integer diaryId, Integer segmentId) {
         DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
         Diary diary = segment.getDiary();
 
@@ -107,8 +107,14 @@ public class SegmentService {
      * → 세그먼트3: stepOrder=1, 세그먼트1: stepOrder=2, 세그먼트2: stepOrder=3
      */
     @Transactional
-    public List<SegmentResponse> reorderSegments(Long userId, Long diaryId, List<Long> segmentIds) {
+    public List<SegmentResponse> reorderSegments(Integer userId, Integer diaryId, List<Integer> segmentIds) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
+
+        // 세그먼트 개수 검증
+        List<DiarySegment> existing = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
+        if (segmentIds.size() != existing.size()) {
+            throw new IllegalArgumentException("순서 변경할 세그먼트 개수가 일치하지 않습니다.");
+        }
 
         for (int i = 0; i < segmentIds.size(); i++) {
             DiarySegment segment = segmentRepository.findById(segmentIds.get(i))
@@ -130,7 +136,7 @@ public class SegmentService {
     /**
      * diaryId + userId로 일기 찾기 (본인 확인)
      */
-    private Diary findDiaryByIdAndUser(Long diaryId, Long userId) {
+    private Diary findDiaryByIdAndUser(Integer diaryId, Integer userId) {
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다."));
 
@@ -143,7 +149,7 @@ public class SegmentService {
     /**
      * segmentId + diaryId + userId로 세그먼트 찾기 (본인 확인)
      */
-    private DiarySegment findSegmentByIdAndUser(Long segmentId, Long diaryId, Long userId) {
+    private DiarySegment findSegmentByIdAndUser(Integer segmentId, Integer diaryId, Integer userId) {
         DiarySegment segment = segmentRepository.findById(segmentId)
                 .orElseThrow(() -> new IllegalArgumentException("중간 기록을 찾을 수 없습니다."));
 

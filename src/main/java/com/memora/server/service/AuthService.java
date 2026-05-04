@@ -4,6 +4,8 @@ import com.memora.server.dto.auth.LoginRequest;
 import com.memora.server.dto.auth.SignupRequest;
 import com.memora.server.dto.auth.TokenResponse;
 
+import com.memora.server.dto.auth.VerifyCodeRequest;
+import java.util.Random;
 import java.util.UUID;
 import com.memora.server.entity.User;
 import com.memora.server.repository.UserRepository;
@@ -29,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final KakaoService kakaoService;
+    private final EmailService emailService;
 
     /**
      * 회원가입
@@ -79,7 +82,12 @@ public class AuthService {
         User user = userRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다."));
 
-        // 2. 비밀번호 확인
+        // 2. 카카오 전용 사용자인지 확인 (password가 null이면 카카오 가입자)
+        if (user.getPassword() == null) {
+            throw new IllegalArgumentException("카카오 로그인으로 가입된 계정입니다. 카카오 로그인을 이용해주세요.");
+        }
+
+        // 3. 비밀번호 확인
         //    passwordEncoder.matches("입력한 비번", "DB에 저장된 암호화 비번")
         //    → 내부적으로 암호화해서 비교해줌
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -135,21 +143,40 @@ public class AuthService {
     }
 
     /**
-     * 비밀번호 재설정 요청
+     * 비밀번호 재설정 요청 - 이메일 인증번호 발송
      *
-     * 1. loginId + phoneNumber로 본인 확인
-     * 2. UUID 리셋 토큰 생성 후 DB에 저장
-     * 3. 리셋 토큰 반환 (실제로는 이메일/문자로 보내야 함)
+     * 1. loginId(이메일)로 사용자 조회
+     * 2. 6자리 랜덤 인증번호 생성
+     * 3. DB에 인증번호 저장 (5분 유효)
+     * 4. 이메일로 인증번호 발송
      */
     @Transactional
-    public String requestPasswordReset(String loginId, String phoneNumber) {
+    public void requestPasswordReset(String loginId) {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("아이디를 찾을 수 없습니다."));
 
-        if (user.getPhoneNumber() == null || !user.getPhoneNumber().equals(phoneNumber)) {
-            throw new IllegalArgumentException("전화번호가 일치하지 않습니다.");
+        String code = String.format("%06d", new Random().nextInt(1000000));
+        user.updateVerificationCode(code);
+        emailService.sendVerificationCode(loginId, code);
+    }
+
+    /**
+     * 인증번호 확인 → resetToken 발급
+     *
+     * 1. loginId로 사용자 조회
+     * 2. 인증번호 일치 + 만료 여부 확인
+     * 3. 맞으면 resetToken 생성 후 반환
+     */
+    @Transactional
+    public String verifyCode(VerifyCodeRequest request) {
+        User user = userRepository.findByLoginId(request.getLoginId())
+                .orElseThrow(() -> new IllegalArgumentException("아이디를 찾을 수 없습니다."));
+
+        if (!user.isVerificationCodeValid(request.getCode())) {
+            throw new IllegalArgumentException("인증번호가 일치하지 않거나 만료되었습니다.");
         }
 
+        user.clearVerificationCode();
         String resetToken = UUID.randomUUID().toString();
         user.updateResetToken(resetToken);
         return resetToken;
@@ -177,7 +204,7 @@ public class AuthService {
      * Access Token은 만료될 때까지 유효하지만, 보통 30분이라 큰 문제 없음
      */
     @Transactional
-    public void logout(Long userId) {
+    public void logout(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         user.updateRefreshToken(null);  // Refresh Token 삭제
@@ -200,7 +227,7 @@ public class AuthService {
         }
 
         // 2. 토큰에서 userId 추출
-        Long userId = jwtTokenProvider.getUserId(refreshToken);
+        Integer userId = jwtTokenProvider.getUserId(refreshToken);
 
         // 3. DB에 저장된 Refresh Token과 비교
         User user = userRepository.findById(userId)

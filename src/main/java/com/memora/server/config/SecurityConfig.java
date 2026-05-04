@@ -64,8 +64,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/check-id",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/reset-password",
+                                "/api/v1/auth/verify-code",
                                 "/api/v1/auth/reset-password/confirm",
-                                "/uploads/**"
+                                "/uploads/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
                         // 그 외 모든 요청은 인증 필요 (User)

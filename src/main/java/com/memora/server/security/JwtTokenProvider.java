@@ -39,7 +39,7 @@ public class JwtTokenProvider {
      * - 사용자가 API를 호출할 때 매번 보내는 토큰
      * - 유효 시간: 30분
      */
-    public String createAccessToken(Long userId) {
+    public String createAccessToken(Integer userId) {
         return createToken(userId, accessTokenValidity);
     }
 
@@ -48,7 +48,7 @@ public class JwtTokenProvider {
      * - Access Token이 만료됐을 때 새로 발급받기 위한 토큰
      * - 유효 시간: 7일
      */
-    public String createRefreshToken(Long userId) {
+    public String createRefreshToken(Integer userId) {
         return createToken(userId, refreshTokenValidity);
     }
 
@@ -61,7 +61,7 @@ public class JwtTokenProvider {
      * - expiration: 만료 시간
      * - 서명: secretKey로 암호화 (위조 방지)
      */
-    private String createToken(Long userId, long validity) {
+    private String createToken(Integer userId, long validity) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + validity);
 
@@ -77,9 +77,9 @@ public class JwtTokenProvider {
      * 토큰에서 userId 꺼내기
      * 예: "eyJhbGci..." → 1 (Long)
      */
-    public Long getUserId(String token) {
+    public Integer getUserId(String token) {
         Claims claims = parseToken(token);
-        return Long.parseLong(claims.getSubject());
+        return Integer.parseInt(claims.getSubject());
     }
 
     /**

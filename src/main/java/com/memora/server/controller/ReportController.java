@@ -29,7 +29,7 @@ public class ReportController {
      */
     @GetMapping("/weekly")
     public ResponseEntity<ReportResponse> getWeeklyReport() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         ReportResponse response = reportService.getWeeklyReport(userId);
         return ResponseEntity.ok(response);
     }
@@ -42,7 +42,7 @@ public class ReportController {
      */
     @GetMapping("/monthly")
     public ResponseEntity<ReportResponse> getMonthlyReport() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         ReportResponse response = reportService.getMonthlyReport(userId);
         return ResponseEntity.ok(response);
     }
@@ -55,14 +55,14 @@ public class ReportController {
      * (실제 전송은 추후 구현)
      */
     @PostMapping("/{reportId}/share")
-    public ResponseEntity<ReportResponse> shareReport(@PathVariable Long reportId) {
-        Long userId = getCurrentUserId();
+    public ResponseEntity<ReportResponse> shareReport(@PathVariable Integer reportId) {
+        Integer userId = getCurrentUserId();
         ReportResponse response = reportService.shareReport(userId, reportId);
         return ResponseEntity.ok(response);
     }
 
-    private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer getCurrentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }

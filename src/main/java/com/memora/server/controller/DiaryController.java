@@ -34,7 +34,7 @@ public class DiaryController {
      */
     @PostMapping
     public ResponseEntity<DiaryResponse> createDiary() {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         DiaryResponse response = diaryService.createDiary(userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -48,7 +48,7 @@ public class DiaryController {
      */
     @GetMapping
     public ResponseEntity<List<DiaryResponse>> getDiaries(@RequestParam String month) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         List<DiaryResponse> response = diaryService.getDiariesByMonth(userId, month);
         return ResponseEntity.ok(response);
     }
@@ -60,8 +60,8 @@ public class DiaryController {
      * @PathVariable: URL의 {diaryId} 부분을 변수로 받음
      */
     @GetMapping("/{diaryId}")
-    public ResponseEntity<DiaryResponse> getDiary(@PathVariable Long diaryId) {
-        Long userId = getCurrentUserId();
+    public ResponseEntity<DiaryResponse> getDiary(@PathVariable Integer diaryId) {
+        Integer userId = getCurrentUserId();
         DiaryResponse response = diaryService.getDiary(userId, diaryId);
         return ResponseEntity.ok(response);
     }
@@ -74,9 +74,9 @@ public class DiaryController {
      */
     @PatchMapping("/{diaryId}")
     public ResponseEntity<DiaryResponse> updateDiary(
-            @PathVariable Long diaryId,
+            @PathVariable Integer diaryId,
             @RequestBody DiaryUpdateRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         DiaryResponse response = diaryService.updateDiary(userId, diaryId, request);
         return ResponseEntity.ok(response);
     }
@@ -88,8 +88,8 @@ public class DiaryController {
      * status: IN_PROGRESS → COMPLETED
      */
     @PostMapping("/{diaryId}/complete")
-    public ResponseEntity<DiaryResponse> completeDiary(@PathVariable Long diaryId) {
-        Long userId = getCurrentUserId();
+    public ResponseEntity<DiaryResponse> completeDiary(@PathVariable Integer diaryId) {
+        Integer userId = getCurrentUserId();
         DiaryResponse response = diaryService.completeDiary(userId, diaryId);
         return ResponseEntity.ok(response);
     }
@@ -99,14 +99,14 @@ public class DiaryController {
      * DELETE /api/v1/diaries/{diaryId}
      */
     @DeleteMapping("/{diaryId}")
-    public ResponseEntity<Map<String, String>> deleteDiary(@PathVariable Long diaryId) {
-        Long userId = getCurrentUserId();
+    public ResponseEntity<Map<String, String>> deleteDiary(@PathVariable Integer diaryId) {
+        Integer userId = getCurrentUserId();
         diaryService.deleteDiary(userId, diaryId);
         return ResponseEntity.ok(Map.of("message", "일기가 삭제되었습니다."));
     }
 
-    private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer getCurrentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }

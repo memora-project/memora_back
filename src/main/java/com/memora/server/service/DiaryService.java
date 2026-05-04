@@ -34,7 +34,7 @@ public class DiaryService {
      * 이미 오늘 일기가 있으면 → 기존 일기를 반환 (중복 생성 방지)
      */
     @Transactional
-    public DiaryResponse createDiary(Long userId) {
+    public DiaryResponse createDiary(Integer userId) {
         User user = findUserById(userId);
         LocalDate today = LocalDate.now();
 
@@ -58,7 +58,7 @@ public class DiaryService {
      *
      * 캘린더 모드에서 한 달치 일기를 보여줄 때 사용
      */
-    public List<DiaryResponse> getDiariesByMonth(Long userId, String month) {
+    public List<DiaryResponse> getDiariesByMonth(Integer userId, String month) {
         User user = findUserById(userId);
 
         // "2026-04" → YearMonth → 시작일/종료일 계산
@@ -78,7 +78,7 @@ public class DiaryService {
      *
      * diaryId로 일기를 찾고, 본인 일기인지 확인
      */
-    public DiaryResponse getDiary(Long userId, Long diaryId) {
+    public DiaryResponse getDiary(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
         return DiaryResponse.from(diary);
     }
@@ -90,7 +90,7 @@ public class DiaryService {
      * AI 초안을 확인하고 사용자가 수정할 때 사용
      */
     @Transactional
-    public DiaryResponse updateDiary(Long userId, Long diaryId, DiaryUpdateRequest request) {
+    public DiaryResponse updateDiary(Integer userId, Integer diaryId, DiaryUpdateRequest request) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
         diary.updateFinal(request.getFinalMood(), request.getFinalContent());
         return DiaryResponse.from(diary);
@@ -103,7 +103,7 @@ public class DiaryService {
      * 최종 기분이 선택되어 있어야 완료 가능
      */
     @Transactional
-    public DiaryResponse completeDiary(Long userId, Long diaryId) {
+    public DiaryResponse completeDiary(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
 
         if (diary.getFinalMood() == null) {
@@ -118,7 +118,7 @@ public class DiaryService {
      * 일기 삭제
      */
     @Transactional
-    public void deleteDiary(Long userId, Long diaryId) {
+    public void deleteDiary(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
         diaryRepository.delete(diary);
     }
@@ -129,7 +129,7 @@ public class DiaryService {
      * 다른 사람의 일기에 접근하려 하면 예외 발생
      * → 보안상 중요한 체크!
      */
-    private Diary findDiaryByIdAndUser(Long diaryId, Long userId) {
+    private Diary findDiaryByIdAndUser(Integer diaryId, Integer userId) {
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다."));
 
@@ -140,7 +140,7 @@ public class DiaryService {
         return diary;
     }
 
-    private User findUserById(Long userId) {
+    private User findUserById(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }

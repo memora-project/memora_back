@@ -1,6 +1,8 @@
 package com.memora.server.dto.auth;
 
 import com.memora.server.entity.enums.GenderType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -8,26 +10,23 @@ import java.time.LocalDate;
 
 /**
  * 회원가입 요청 DTO
- *
- * 프론트가 회원가입할 때 보내는 데이터:
- * {
- *     "loginId": "memora123",
- *     "password": "1234",
- *     "name": "홍길동",
- *     "gender": "MALE",
- *     "birthDate": "1955-03-15",
- *     "phoneNumber": "010-1234-5678",
- *     "address": "대전시 유성구",
- *     "emergencyContact": "010-9876-5432"
- * }
  */
 @Getter
 @NoArgsConstructor
 public class SignupRequest {
 
+    @NotBlank(message = "아이디를 입력해주세요.")
+    @Size(max = 50, message = "아이디는 50자 이내로 입력해주세요.")
     private String loginId;
+
+    @NotBlank(message = "비밀번호를 입력해주세요.")
+    @Size(min = 4, max = 20, message = "비밀번호는 4~20자로 입력해주세요.")
     private String password;
+
+    @NotBlank(message = "이름을 입력해주세요.")
+    @Size(max = 20, message = "이름은 20자 이내로 입력해주세요.")
     private String name;
+
     private GenderType gender;
     private LocalDate birthDate;
     private String phoneNumber;

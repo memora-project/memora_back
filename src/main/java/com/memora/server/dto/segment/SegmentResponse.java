@@ -31,7 +31,7 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class SegmentResponse {
 
-    private Long segmentId;
+    private Integer segmentId;
     private Integer stepOrder;
     private MoodType moodSnapshot;
     private String photoUrl;

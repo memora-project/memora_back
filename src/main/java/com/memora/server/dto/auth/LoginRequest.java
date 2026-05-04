@@ -1,21 +1,19 @@
 package com.memora.server.dto.auth;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
  * 로그인 요청 DTO
- *
- * 프론트가 로그인할 때 보내는 데이터:
- * {
- *     "loginId": "memora123",
- *     "password": "1234"
- * }
  */
 @Getter
 @NoArgsConstructor
 public class LoginRequest {
 
+    @NotBlank(message = "아이디를 입력해주세요.")
     private String loginId;
+
+    @NotBlank(message = "비밀번호를 입력해주세요.")
     private String password;
 }

@@ -30,7 +30,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class ReportResponse {
 
-    private Long reportId;
+    private Integer reportId;
     private LocalDate startDate;
     private LocalDate endDate;
     private MoodType mostFrequentMood;

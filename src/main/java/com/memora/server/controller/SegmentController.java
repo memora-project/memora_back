@@ -34,9 +34,9 @@ public class SegmentController {
      */
     @PostMapping
     public ResponseEntity<SegmentResponse> createSegment(
-            @PathVariable Long diaryId,
+            @PathVariable Integer diaryId,
             @RequestBody SegmentCreateRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         SegmentResponse response = segmentService.createSegment(userId, diaryId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -48,8 +48,8 @@ public class SegmentController {
      * stepOrder 순서대로 반환
      */
     @GetMapping
-    public ResponseEntity<List<SegmentResponse>> getSegments(@PathVariable Long diaryId) {
-        Long userId = getCurrentUserId();
+    public ResponseEntity<List<SegmentResponse>> getSegments(@PathVariable Integer diaryId) {
+        Integer userId = getCurrentUserId();
         List<SegmentResponse> response = segmentService.getSegments(userId, diaryId);
         return ResponseEntity.ok(response);
     }
@@ -62,10 +62,10 @@ public class SegmentController {
      */
     @PatchMapping("/{segmentId}")
     public ResponseEntity<SegmentResponse> updateSegment(
-            @PathVariable Long diaryId,
-            @PathVariable Long segmentId,
+            @PathVariable Integer diaryId,
+            @PathVariable Integer segmentId,
             @RequestBody SegmentUpdateRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         SegmentResponse response = segmentService.updateSegment(userId, diaryId, segmentId, request);
         return ResponseEntity.ok(response);
     }
@@ -78,9 +78,9 @@ public class SegmentController {
      */
     @DeleteMapping("/{segmentId}")
     public ResponseEntity<Map<String, String>> deleteSegment(
-            @PathVariable Long diaryId,
-            @PathVariable Long segmentId) {
-        Long userId = getCurrentUserId();
+            @PathVariable Integer diaryId,
+            @PathVariable Integer segmentId) {
+        Integer userId = getCurrentUserId();
         segmentService.deleteSegment(userId, diaryId, segmentId);
         return ResponseEntity.ok(Map.of("message", "중간 기록이 삭제되었습니다."));
     }
@@ -94,15 +94,15 @@ public class SegmentController {
      */
     @PatchMapping("/order")
     public ResponseEntity<List<SegmentResponse>> reorderSegments(
-            @PathVariable Long diaryId,
+            @PathVariable Integer diaryId,
             @RequestBody SegmentOrderRequest request) {
-        Long userId = getCurrentUserId();
+        Integer userId = getCurrentUserId();
         List<SegmentResponse> response = segmentService.reorderSegments(userId, diaryId, request.getSegmentIds());
         return ResponseEntity.ok(response);
     }
 
-    private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer getCurrentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }
