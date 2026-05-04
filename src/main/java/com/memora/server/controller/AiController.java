@@ -32,9 +32,9 @@ public class AiController {
      */
     @PostMapping("/{diaryId}/segments/{segmentId}/ai-draft")
     public ResponseEntity<SegmentResponse> generateSegmentDraft(
-            @PathVariable Long diaryId,
-            @PathVariable Long segmentId) {
-        Long userId = currentUserId();
+            @PathVariable Integer diaryId,
+            @PathVariable Integer segmentId) {
+        Integer userId = currentUserId();
         SegmentResponse response = aiService.generateSegmentDraft(userId, diaryId, segmentId);
         return ResponseEntity.ok(response);
     }
@@ -47,14 +47,14 @@ public class AiController {
      * 응답: DiaryResponse — aiDraft 필드가 채워진 상태로 반환.
      */
     @PostMapping("/{diaryId}/ai-draft")
-    public ResponseEntity<DiaryResponse> generateDiaryDraft(@PathVariable Long diaryId) {
-        Long userId = currentUserId();
+    public ResponseEntity<DiaryResponse> generateDiaryDraft(@PathVariable Integer diaryId) {
+        Integer userId = currentUserId();
         DiaryResponse response = aiService.generateDiaryDraft(userId, diaryId);
         return ResponseEntity.ok(response);
     }
 
-    private Long currentUserId() {
-        return (Long) SecurityContextHolder.getContext()
+    private Integer currentUserId() {
+        return (Integer) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
     }
 }
