@@ -71,7 +71,7 @@ public class AiService {
      *      → segment.aiDraft 저장 → SegmentResponse 반환
      */
     @Transactional
-    public SegmentResponse generateSegmentDraft(Long userId, Long diaryId, Long segmentId) {
+    public SegmentResponse generateSegmentDraft(Integer userId, Integer diaryId, Integer segmentId) {
         DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
         rateLimiter.check(userId);
 
@@ -91,7 +91,7 @@ public class AiService {
      *      → OpenRouter 호출 → diary.aiDraft 저장 → DiaryResponse 반환
      */
     @Transactional
-    public DiaryResponse generateDiaryDraft(Long userId, Long diaryId) {
+    public DiaryResponse generateDiaryDraft(Integer userId, Integer diaryId) {
         Diary diary = findDiaryByIdAndUser(diaryId, userId);
         List<DiarySegment> segments = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
 
@@ -227,7 +227,7 @@ public class AiService {
 
     // ------------------------------------------------------------- ownership helpers
 
-    private Diary findDiaryByIdAndUser(Long diaryId, Long userId) {
+    private Diary findDiaryByIdAndUser(Integer diaryId, Integer userId) {
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다."));
         if (!diary.getUser().getUserId().equals(userId)) {
@@ -236,7 +236,7 @@ public class AiService {
         return diary;
     }
 
-    private DiarySegment findSegmentByIdAndUser(Long segmentId, Long diaryId, Long userId) {
+    private DiarySegment findSegmentByIdAndUser(Integer segmentId, Integer diaryId, Integer userId) {
         DiarySegment segment = segmentRepository.findById(segmentId)
                 .orElseThrow(() -> new IllegalArgumentException("중간 기록을 찾을 수 없습니다."));
         if (!segment.getDiary().getDiaryId().equals(diaryId)) {

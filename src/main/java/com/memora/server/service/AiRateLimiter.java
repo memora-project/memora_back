@@ -24,7 +24,7 @@ public class AiRateLimiter {
     private static final int MAX_PER_MINUTE = 10;
     private static final long WINDOW_MILLIS = 60_000L;
 
-    private final ConcurrentHashMap<Long, Deque<Long>> userCalls = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Deque<Long>> userCalls = new ConcurrentHashMap<>();
 
     /**
      * 호출 1회를 등록. 윈도우 내 호출 수가 한도를 넘으면 예외.
@@ -32,7 +32,7 @@ public class AiRateLimiter {
      * Throws:
      *  - RateLimitExceededException — 분당 한도 초과 시 (HTTP 429)
      */
-    public void check(Long userId) {
+    public void check(Integer userId) {
         long now = Instant.now().toEpochMilli();
         Deque<Long> calls = userCalls.computeIfAbsent(userId, k -> new ArrayDeque<>());
 
