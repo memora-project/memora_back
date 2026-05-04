@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "diary_segments")
@@ -49,6 +51,15 @@ public class DiarySegment {
     @Builder.Default
     private Boolean isEdited = false;
 
+    /**
+     * 다중 사진 첨부 — 1:N. orphanRemoval=true로 segment 삭제 시 사진도 같이 정리.
+     * 단일 photoUrl 컬럼은 첫 번째 사진의 mirror로 호환 유지(레거시 컨슈머 보호).
+     */
+    @OneToMany(mappedBy = "segment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("photoOrder ASC")
+    @Builder.Default
+    private List<SegmentPhoto> photos = new ArrayList<>();
+
     @Builder.Default
     @Column(updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
@@ -77,5 +88,20 @@ public class DiarySegment {
      */
     public void updateStepOrder(int stepOrder) {
         this.stepOrder = stepOrder;
+    }
+
+    /**
+     * 사진 추가 — segment.photos에 양방향으로 연결 + 첫 번째 사진의 메타를
+     * 단일 컬럼들에 mirror해서 레거시 코드 경로(getPhotoUrl 등)와 호환.
+     */
+    public void addPhoto(SegmentPhoto photo) {
+        this.photos.add(photo);
+        if (this.photos.size() == 1) {
+            this.photoUrl = photo.getPhotoUrl();
+            this.takenAt = photo.getTakenAt();
+            this.latitude = photo.getLatitude();
+            this.longitude = photo.getLongitude();
+            this.locationName = photo.getLocationName();
+        }
     }
 }

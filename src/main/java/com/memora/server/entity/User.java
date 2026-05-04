@@ -46,6 +46,10 @@ public class User {
     @Column(length = 15)
     private String emergencyContact;
 
+    /** 손주 얼굴 사진 url(/uploads/...) — 홈 화면 빈 상태에서 이모지 대신 표시. */
+    @Column(length = 500)
+    private String grandchildPhotoUrl;
+
     @Column(length = 500)
     private String refreshToken;
 
@@ -141,6 +145,14 @@ public class User {
      */
     public void updateFcmToken(String fcmToken) {
         this.fcmToken = fcmToken;
+    }
+
+    /**
+     * 손주 얼굴 사진 url 업데이트.
+     * 빈 문자열로 들어오면 null로 저장(=초기화).
+     */
+    public void updateGrandchildPhoto(String url) {
+        this.grandchildPhotoUrl = (url == null || url.isBlank()) ? null : url;
     }
 
     /**
