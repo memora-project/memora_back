@@ -1,10 +1,12 @@
 package com.memora.server.service;
 
+import com.memora.server.dto.segment.PhotoMeta;
 import com.memora.server.dto.segment.SegmentCreateRequest;
 import com.memora.server.dto.segment.SegmentResponse;
 import com.memora.server.dto.segment.SegmentUpdateRequest;
 import com.memora.server.entity.Diary;
 import com.memora.server.entity.DiarySegment;
+import com.memora.server.entity.SegmentPhoto;
 import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.DiarySegmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +32,10 @@ public class SegmentService {
     /**
      * 중간 기록 추가
      *
-     * 해당 일기에 속한 세그먼트 개수를 세서 다음 순서(stepOrder)를 자동 부여
-     * 예: 이미 2개 있으면 → stepOrder = 3
+     * 해당 일기에 속한 세그먼트 개수를 세서 다음 순서(stepOrder)를 자동 부여.
+     * 사진은 두 가지 입력 경로를 모두 받는다:
+     *   - photos 배열 (권장 / 다중) — 있으면 이쪽이 우선
+     *   - 단일 photoUrl/takenAt/... (레거시) — photos가 비어있을 때만 단일 사진으로 처리
      */
     @Transactional
     public SegmentResponse createSegment(Integer userId, Integer diaryId, SegmentCreateRequest request) {
@@ -45,15 +49,42 @@ public class SegmentService {
                 .diary(diary)
                 .stepOrder(nextOrder)
                 .moodSnapshot(request.getMoodSnapshot())
-                .photoUrl(request.getPhotoUrl())
-                .takenAt(request.getTakenAt())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .locationName(request.getLocationName())
                 .userContent(request.getUserContent())
                 .build();
 
-        return SegmentResponse.from(segmentRepository.save(segment));
+        DiarySegment saved = segmentRepository.save(segment);
+
+        // 사진 첨부 — photos 배열이 우선, 비어있으면 단일 photoUrl 경로 폴백
+        List<PhotoMeta> photos = request.getPhotos();
+        if (photos != null && !photos.isEmpty()) {
+            int order = 1;
+            for (PhotoMeta meta : photos) {
+                if (meta.getPhotoUrl() == null || meta.getPhotoUrl().isBlank()) continue;
+                SegmentPhoto photo = SegmentPhoto.builder()
+                        .segment(saved)
+                        .photoOrder(order++)
+                        .photoUrl(meta.getPhotoUrl())
+                        .takenAt(meta.getTakenAt())
+                        .latitude(meta.getLatitude())
+                        .longitude(meta.getLongitude())
+                        .locationName(meta.getLocationName())
+                        .build();
+                saved.addPhoto(photo);
+            }
+        } else if (request.getPhotoUrl() != null && !request.getPhotoUrl().isBlank()) {
+            SegmentPhoto photo = SegmentPhoto.builder()
+                    .segment(saved)
+                    .photoOrder(1)
+                    .photoUrl(request.getPhotoUrl())
+                    .takenAt(request.getTakenAt())
+                    .latitude(request.getLatitude())
+                    .longitude(request.getLongitude())
+                    .locationName(request.getLocationName())
+                    .build();
+            saved.addPhoto(photo);
+        }
+
+        return SegmentResponse.from(saved);
     }
 
     /**

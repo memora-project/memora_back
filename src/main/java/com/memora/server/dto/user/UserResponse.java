@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 /**
  * 내 정보 조회 응답 DTO
@@ -41,6 +42,8 @@ public class UserResponse {
     private String emergencyContact;
     private Boolean isReportShared;
     private Boolean isKakaoUser;
+    private OffsetDateTime createdAt;
+    private String grandchildPhotoUrl;
 
     /**
      * User 엔티티 → UserResponse 변환
@@ -57,7 +60,9 @@ public class UserResponse {
                 user.getAddress(),
                 user.getEmergencyContact(),
                 user.getIsReportShared(),
-                user.getKakaoId() != null  // kakaoId가 있으면 카카오 유저
+                user.getKakaoId() != null,  // kakaoId가 있으면 카카오 유저
+                user.getCreatedAt(),
+                user.getGrandchildPhotoUrl()
         );
     }
 }

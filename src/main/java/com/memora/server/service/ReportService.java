@@ -4,7 +4,6 @@ import com.memora.server.dto.report.ReportResponse;
 import com.memora.server.entity.Diary;
 import com.memora.server.entity.HealthReport;
 import com.memora.server.entity.User;
-import com.memora.server.entity.enums.DiaryStatus;
 import com.memora.server.entity.enums.MoodType;
 import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.HealthReportRepository;
@@ -20,7 +19,6 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 리포트 관련 비즈니스 로직
@@ -91,74 +89,85 @@ public class ReportService {
 
         // 리포트 기간에 해당하는 기분 분포 재계산
         User user = report.getUser();
-        List<Diary> completedDiaries = diaryRepository
-                .findByUserAndStatusAndTargetDateBetween(user, DiaryStatus.COMPLETED,
-                        report.getStartDate(), report.getEndDate());
-
-        Map<String, Long> moodDistribution = completedDiaries.stream()
-                .filter(d -> d.getFinalMood() != null)
-                .collect(Collectors.groupingBy(d -> d.getFinalMood().name(), Collectors.counting()));
-
-        Map<String, Long> fullDistribution = new LinkedHashMap<>();
-        for (MoodType mood : MoodType.values()) {
-            fullDistribution.put(mood.name(), moodDistribution.getOrDefault(mood.name(), 0L));
-        }
-
-        return ReportResponse.from(report, fullDistribution, completedDiaries.size());
+        Aggregation agg = aggregateMoods(user, report.getStartDate(), report.getEndDate());
+        return ReportResponse.from(report, agg.distribution, agg.totalEntries);
     }
 
     /**
      * 리포트 생성/갱신 공통 로직
      *
-     * 1. 해당 기간의 완료된 일기 조회
-     * 2. 기분 분포 계산 (GREAT: 3, CALM: 2 ...)
+     * 사용자가 일반 일기(segment)를 추가할 때마다 분석에 즉시 반영되도록
+     * 모든 status의 diary를 대상으로 segments + finalMood까지 모두 카운트한다.
+     *
+     * 1. 해당 기간의 모든 일기 조회 (status 무관)
+     * 2. 모든 segment.moodSnapshot + (있으면) finalMood 합산
      * 3. 가장 빈번한 기분 결정
-     * 4. 활동 점수 = 완료된 일기 수
-     * 5. DB에 저장 또는 업데이트
+     * 4. 총 작성 수 = 모든 segments + 마무리 일기(있는 경우)
+     * 5. DB에 저장 또는 업데이트 (스냅샷 — 다음 호출 때 최신 집계로 다시 계산)
      */
     private ReportResponse generateReport(User user, LocalDate startDate, LocalDate endDate) {
-        // 1. 해당 기간의 완료된 일기 조회
-        List<Diary> completedDiaries = diaryRepository
-                .findByUserAndStatusAndTargetDateBetween(user, DiaryStatus.COMPLETED, startDate, endDate);
+        Aggregation agg = aggregateMoods(user, startDate, endDate);
 
-        // 2. 기분 분포 계산
-        Map<String, Long> moodDistribution = completedDiaries.stream()
-                .filter(d -> d.getFinalMood() != null)
-                .collect(Collectors.groupingBy(
-                        d -> d.getFinalMood().name(),
-                        Collectors.counting()
-                ));
-
-        // 모든 기분 타입을 포함하되 0으로 초기화
-        Map<String, Long> fullDistribution = new LinkedHashMap<>();
-        for (MoodType mood : MoodType.values()) {
-            fullDistribution.put(mood.name(), moodDistribution.getOrDefault(mood.name(), 0L));
-        }
-
-        // 3. 가장 빈번한 기분
-        MoodType mostFrequentMood = moodDistribution.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(e -> MoodType.valueOf(e.getKey()))
-                .orElse(null);
-
-        // 4. 활동 점수 = 완료된 일기 수
-        int activityScore = completedDiaries.size();
-
-        // 5. 기존 리포트가 있으면 가져오고, 없으면 새로 생성
+        // 기존 리포트가 있으면 재사용, 없으면 새로 생성
         HealthReport report = reportRepository.findByUserAndStartDateAndEndDate(user, startDate, endDate)
                 .orElseGet(() -> {
                     HealthReport newReport = HealthReport.builder()
                             .user(user)
                             .startDate(startDate)
                             .endDate(endDate)
-                            .mostFrequentMood(mostFrequentMood)
-                            .activityScore(activityScore)
+                            .mostFrequentMood(agg.mostFrequentMood)
+                            .activityScore(agg.totalEntries)
                             .build();
                     return reportRepository.save(newReport);
                 });
 
-        return ReportResponse.from(report, fullDistribution, activityScore);
+        // 항상 최신 집계로 갱신 — 사용자가 일기를 추가/삭제하면 다음 호출 때 즉시 반영.
+        report.updateStats(agg.mostFrequentMood, agg.totalEntries);
+
+        return ReportResponse.from(report, agg.distribution, agg.totalEntries);
     }
+
+    /**
+     * 기간 내 모든 일기를 훑어 segment + final 기분을 합산한다.
+     * - 일반 일기(segment) 한 건 = 1개 카운트
+     * - 마무리 일기(finalMood not null) = 1개 카운트
+     */
+    private Aggregation aggregateMoods(User user, LocalDate startDate, LocalDate endDate) {
+        List<Diary> diaries = diaryRepository
+                .findByUserAndTargetDateBetweenOrderByTargetDateDesc(user, startDate, endDate);
+
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (MoodType mood : MoodType.values()) {
+            counts.put(mood.name(), 0L);
+        }
+
+        int totalEntries = 0;
+        for (Diary diary : diaries) {
+            for (var seg : diary.getSegments()) {
+                if (seg.getMoodSnapshot() != null) {
+                    counts.merge(seg.getMoodSnapshot().name(), 1L, Long::sum);
+                    totalEntries++;
+                }
+            }
+            if (diary.getFinalMood() != null) {
+                counts.merge(diary.getFinalMood().name(), 1L, Long::sum);
+                totalEntries++;
+            }
+        }
+
+        MoodType mostFrequentMood = counts.entrySet().stream()
+                .filter(e -> e.getValue() > 0)
+                .max(Map.Entry.comparingByValue())
+                .map(e -> MoodType.valueOf(e.getKey()))
+                .orElse(null);
+
+        return new Aggregation(counts, totalEntries, mostFrequentMood);
+    }
+
+    private record Aggregation(
+            Map<String, Long> distribution,
+            int totalEntries,
+            MoodType mostFrequentMood) {}
 
     private User findUserById(Integer userId) {
         return userRepository.findById(userId)

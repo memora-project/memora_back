@@ -50,4 +50,13 @@ public class HealthReport {
     public void share() {
         this.isShared = true;
     }
+
+    /**
+     * 집계 통계 갱신 — 사용자가 일기를 추가/수정/삭제할 때마다 호출되어
+     * mostFrequentMood와 activityScore(총 작성 수)를 최신 값으로 덮어쓴다.
+     */
+    public void updateStats(MoodType mostFrequentMood, Integer activityScore) {
+        this.mostFrequentMood = mostFrequentMood;
+        this.activityScore = activityScore;
+    }
 }
