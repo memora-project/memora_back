@@ -50,6 +50,7 @@ public class SegmentService {
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .locationName(request.getLocationName())
+                .userContent(request.getUserContent())
                 .build();
 
         return SegmentResponse.from(segmentRepository.save(segment));
