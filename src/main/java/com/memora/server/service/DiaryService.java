@@ -127,6 +127,19 @@ public class DiaryService {
     }
 
     /**
+     * 마무리(final) 일기만 삭제 — 그날의 segments는 유지.
+     *
+     * Diary 엔티티 자체는 남고 finalMood/finalContent/aiDraft가 비워지며 status가 IN_PROGRESS로 복귀.
+     * 사용자가 마무리 일기만 삭제하고 싶을 때 호출.
+     */
+    @Transactional
+    public DiaryResponse deleteFinalDiary(Integer userId, Integer diaryId) {
+        Diary diary = findDiaryByIdAndUser(diaryId, userId);
+        diary.resetFinal();
+        return DiaryResponse.from(diary);
+    }
+
+    /**
      * diaryId + userId로 일기 찾기 (본인 일기인지 확인)
      *
      * 다른 사람의 일기에 접근하려 하면 예외 발생
