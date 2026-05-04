@@ -26,6 +26,7 @@ public class SegmentService {
 
     private final DiaryRepository diaryRepository;
     private final DiarySegmentRepository segmentRepository;
+    private final GeocodingService geocodingService;
 
     /**
      * 중간 기록 추가
@@ -41,6 +42,12 @@ public class SegmentService {
         List<DiarySegment> existing = segmentRepository.findByDiaryOrderByStepOrderAsc(diary);
         int nextOrder = existing.size() + 1;
 
+        // 위도/경도가 있고 locationName이 없으면 역지오코딩으로 주소 변환
+        String locationName = request.getLocationName();
+        if ((locationName == null || locationName.isBlank()) && request.getLatitude() != null && request.getLongitude() != null) {
+            locationName = geocodingService.reverseGeocode(request.getLatitude(), request.getLongitude());
+        }
+
         DiarySegment segment = DiarySegment.builder()
                 .diary(diary)
                 .stepOrder(nextOrder)
@@ -49,7 +56,7 @@ public class SegmentService {
                 .takenAt(request.getTakenAt())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
-                .locationName(request.getLocationName())
+                .locationName(locationName)
                 .userContent(request.getUserContent())
                 .build();
 
