@@ -120,9 +120,10 @@ public class AuthService {
         // 2. kakaoId로 기존 사용자인지 확인
         User user = userRepository.findByKakaoId(kakaoUserInfo.getKakaoId())
                 .orElseGet(() -> {
-                    // 없으면 → 자동 회원가입
+                    // 없으면 → 자동 회원가입 (loginId는 카카오ID 기반으로 생성)
                     User newUser = User.builder()
                             .kakaoId(kakaoUserInfo.getKakaoId())
+                            .loginId("kakao_" + kakaoUserInfo.getKakaoId())
                             .name(kakaoUserInfo.getNickname())
                             .build();
                     return userRepository.save(newUser);

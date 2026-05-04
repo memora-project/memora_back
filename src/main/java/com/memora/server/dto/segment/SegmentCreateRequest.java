@@ -1,6 +1,7 @@
 package com.memora.server.dto.segment;
 
 import com.memora.server.entity.enums.MoodType;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -30,6 +31,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 public class SegmentCreateRequest {
 
+    @NotNull(message = "기분을 선택해주세요.")
     private MoodType moodSnapshot;
     private String photoUrl;
     private OffsetDateTime takenAt;

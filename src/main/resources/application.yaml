@@ -30,6 +30,9 @@ spring:
           starttls:
             enable: true
 
+  scheduling:
+    default-timezone: Asia/Seoul
+
 kakao:
   rest-api-key: ${KAKAO_REST_API_KEY}
   client-secret: ${KAKAO_CLIENT_SECRET}
