@@ -86,4 +86,20 @@ public class Diary {
         this.status = DiaryStatus.COMPLETED;
         this.updatedAt = OffsetDateTime.now();
     }
+
+    /**
+     * 마무리(final) 일기만 초기화한다.
+     * - finalMood/finalContent/aiDraft 모두 null
+     * - isEdited false
+     * - status IN_PROGRESS로 복귀
+     * 하루 컨테이너(Diary)와 그 안의 segments는 유지.
+     */
+    public void resetFinal() {
+        this.finalMood = null;
+        this.finalContent = null;
+        this.aiDraft = null;
+        this.isEdited = false;
+        this.status = DiaryStatus.IN_PROGRESS;
+        this.updatedAt = OffsetDateTime.now();
+    }
 }
