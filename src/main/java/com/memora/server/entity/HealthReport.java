@@ -59,4 +59,11 @@ public class HealthReport {
         this.mostFrequentMood = mostFrequentMood;
         this.activityScore = activityScore;
     }
+
+    /**
+     * AI 분석 코멘트 저장
+     */
+    public void updateAiAnalysisSummary(String summary) {
+        this.aiAnalysisSummary = summary;
+    }
 }

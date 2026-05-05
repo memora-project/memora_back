@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -71,6 +72,72 @@ public class OpenrouterService {
                     .body(Map.class);
         } catch (RestClientException e) {
             log.error("OpenRouter 호출 실패", e);
+            throw new IllegalArgumentException("AI 서비스 호출에 실패했습니다.");
+        }
+
+        if (response == null) {
+            throw new IllegalArgumentException("AI 응답이 비어있습니다.");
+        }
+
+        List choices = (List) response.get("choices");
+        if (choices == null || choices.isEmpty()) {
+            throw new IllegalArgumentException("AI 응답에 choices가 없습니다.");
+        }
+
+        Map message = (Map) ((Map) choices.get(0)).get("message");
+        String content = message != null ? (String) message.get("content") : null;
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("AI가 빈 응답을 반환했습니다.");
+        }
+        return content.trim();
+    }
+
+    /**
+     * Vision 포함 Chat Completions 호출.
+     * 텍스트 프롬프트 + Base64 이미지를 함께 보내서 사진 내용을 분석한다.
+     *
+     * @param systemPrompt 시스템 프롬프트
+     * @param userPrompt   텍스트 프롬프트
+     * @param base64Image  Base64 인코딩된 이미지 (null이면 텍스트만)
+     * @param mimeType     이미지 MIME 타입 (예: "image/jpeg")
+     */
+    public String chatWithVision(String systemPrompt, String userPrompt,
+                                  String base64Image, String mimeType) {
+        // 이미지 없으면 텍스트만
+        if (base64Image == null) {
+            return chat(systemPrompt, userPrompt);
+        }
+
+        List<Map<String, Object>> userContent = new ArrayList<>();
+        userContent.add(Map.of("type", "text", "text", userPrompt));
+        userContent.add(Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", "data:" + mimeType + ";base64," + base64Image)
+        ));
+
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "temperature", 0.8,
+                "max_tokens", 1500,
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userContent)
+                )
+        );
+
+        Map response;
+        try {
+            response = restClient.post()
+                    .uri(endpoint)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("HTTP-Referer", "https://memora.app")
+                    .header("X-Title", "Memora")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientException e) {
+            log.error("OpenRouter Vision 호출 실패", e);
             throw new IllegalArgumentException("AI 서비스 호출에 실패했습니다.");
         }
 
