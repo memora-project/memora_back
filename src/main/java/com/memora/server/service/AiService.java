@@ -10,13 +10,21 @@ import com.memora.server.entity.enums.MoodType;
 import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.DiarySegmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI 일기 초안 생성 비즈니스 로직.
@@ -30,6 +38,7 @@ import java.util.List;
  *
  * 시스템 프롬프트는 서버에서만 관리한다. 클라이언트로 절대 노출 X.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -39,6 +48,9 @@ public class AiService {
     private final DiarySegmentRepository segmentRepository;
     private final OpenrouterService openrouterService;
     private final AiRateLimiter rateLimiter;
+
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
 
     /**
      * 단일 중간 기록(Segment)용 프롬프트 템플릿. 한 번의 기록 → 3~4문장 초안.
@@ -52,6 +64,15 @@ public class AiService {
             "3~4문장의 감성적인 일기 초안을 작성해줘.",
             "메모가 없다면 사진 정보를 기반으로 따뜻한 상상을 더해줘.",
             "결과는 따로 머리말이나 인용부호 없이 일기 본문만 출력해."
+    );
+
+    /** 리포트 AI 분석 코멘트용 프롬프트. 기분 분포 데이터 → 1~2문장 따뜻한 코멘트. */
+    private static final String REPORT_SYSTEM_PROMPT = String.join(" ",
+            "너는 70대 어르신을 모시는 10대 다정하고 섬세한 손주야.",
+            "말투는 경어체를 사용하며, 어르신의 감정 변화를 따뜻하게 읽어주는 분위기여야 해.",
+            "입력으로 받은 [기간, 기분 분포, 가장 빈번한 기분, 총 작성 수] 데이터를 바탕으로",
+            "1~2문장의 따뜻하고 격려하는 분석 코멘트를 작성해줘.",
+            "결과는 따로 머리말이나 인용부호 없이 코멘트 본문만 출력해."
     );
 
     /** 하루 final diary용 프롬프트 템플릿. 여러 segment를 묶어 8~12문장 일기. */
@@ -78,7 +99,27 @@ public class AiService {
         User user = segment.getDiary().getUser();
         String systemPrompt = resolvePersona(SEGMENT_SYSTEM_PROMPT_TEMPLATE, user);
         String userPrompt = buildSegmentUserPrompt(segment);
-        String draft = openrouterService.chat(systemPrompt, userPrompt);
+
+        // 사진이 있으면 Vision으로 호출, 없으면 텍스트만
+        String photoUrl = getSegmentPhotoUrl(segment);
+        String base64Image = null;
+        String mimeType = null;
+
+        if (photoUrl != null) {
+            try {
+                Path filePath = Paths.get(uploadDir).toAbsolutePath()
+                        .resolve(photoUrl.replace("/uploads/", ""));
+                if (Files.exists(filePath)) {
+                    base64Image = Base64.getEncoder().encodeToString(Files.readAllBytes(filePath));
+                    mimeType = Files.probeContentType(filePath);
+                    if (mimeType == null) mimeType = "image/jpeg";
+                }
+            } catch (IOException e) {
+                log.warn("사진 읽기 실패, 텍스트만으로 진행: {}", photoUrl, e);
+            }
+        }
+
+        String draft = openrouterService.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
@@ -223,6 +264,46 @@ public class AiService {
             case ANGRY -> "화나요";
             case PAIN -> "몸이 안 좋아요";
         };
+    }
+
+    // ------------------------------------------------------------- photo helper
+
+    /**
+     * 세그먼트의 첫 번째 사진 URL 가져오기 (없으면 null)
+     */
+    private String getSegmentPhotoUrl(DiarySegment segment) {
+        if (segment.getPhotos() != null && !segment.getPhotos().isEmpty()) {
+            return segment.getPhotos().get(0).getPhotoUrl();
+        }
+        return segment.getPhotoUrl();
+    }
+
+    // ------------------------------------------------------------- report AI comment
+
+    /**
+     * 리포트 AI 분석 코멘트 생성.
+     *
+     * @param periodLabel  "주간" 또는 "월간"
+     * @param distribution 기분 분포 (예: {GREAT: 3, CALM: 2, SAD: 1})
+     * @param mostFrequentMood 가장 빈번한 기분
+     * @param totalEntries 총 작성 수
+     * @return 1~2문장 코멘트
+     */
+    public String generateReportComment(String periodLabel, Map<String, Long> distribution,
+                                        MoodType mostFrequentMood, int totalEntries) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("기간: ").append(periodLabel).append(" 리포트\n");
+        sb.append("총 기록 수: ").append(totalEntries).append("개\n");
+        sb.append("가장 빈번한 기분: ").append(mostFrequentMood != null ? moodLabel(mostFrequentMood) : "없음").append("\n");
+        sb.append("기분 분포:\n");
+        for (var entry : distribution.entrySet()) {
+            if (entry.getValue() > 0) {
+                sb.append("  - ").append(moodLabel(MoodType.valueOf(entry.getKey())))
+                        .append(": ").append(entry.getValue()).append("회\n");
+            }
+        }
+
+        return openrouterService.chat(REPORT_SYSTEM_PROMPT, sb.toString());
     }
 
     // ------------------------------------------------------------- ownership helpers

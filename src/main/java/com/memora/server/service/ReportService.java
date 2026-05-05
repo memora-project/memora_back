@@ -9,6 +9,7 @@ import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.HealthReportRepository;
 import com.memora.server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ import java.util.Map;
  * 주간/월간 기분 통계를 집계하고 리포트를 생성
  * 기분 분포, 가장 빈번한 기분, 활동 점수 등을 계산
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -34,6 +36,7 @@ public class ReportService {
     private final HealthReportRepository reportRepository;
     private final DiaryRepository diaryRepository;
     private final UserRepository userRepository;
+    private final AiService aiService;
 
     /**
      * 주간 리포트 조회
@@ -122,7 +125,21 @@ public class ReportService {
                 });
 
         // 항상 최신 집계로 갱신 — 사용자가 일기를 추가/삭제하면 다음 호출 때 즉시 반영.
+        boolean statsChanged = !Integer.valueOf(agg.totalEntries).equals(report.getActivityScore());
         report.updateStats(agg.mostFrequentMood, agg.totalEntries);
+
+        // AI 분석 코멘트 — 작성 수가 1개 이상이고 (집계가 변경됐거나 코멘트가 없을 때만) 호출
+        if (agg.totalEntries >= 1 && (report.getAiAnalysisSummary() == null || statsChanged)) {
+            try {
+                String periodLabel = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) <= 7 ? "주간" : "월간";
+                String comment = aiService.generateReportComment(
+                        periodLabel, agg.distribution, agg.mostFrequentMood, agg.totalEntries);
+                report.updateAiAnalysisSummary(comment);
+            } catch (Exception e) {
+                log.error("리포트 AI 코멘트 생성 실패", e);
+                // 실패해도 리포트 자체는 정상 반환
+            }
+        }
 
         return ReportResponse.from(report, agg.distribution, agg.totalEntries);
     }
