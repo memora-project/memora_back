@@ -56,6 +56,9 @@ public class SegmentService {
                 .diary(diary)
                 .stepOrder(nextOrder)
                 .moodSnapshot(request.getMoodSnapshot())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .locationName(locationName)
                 .userContent(request.getUserContent())
                 .build();
 
