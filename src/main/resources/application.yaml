@@ -39,8 +39,8 @@ kakao:
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity: 1800000
-  refresh-token-validity: 604800000
+  access-token-validity: 31536000000    # 1년
+  refresh-token-validity: 31536000000   # 1년
 
 openrouter:
   api-key: ${OPENROUTER_API_KEY}
