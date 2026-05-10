@@ -28,6 +28,8 @@ public class UserUpdateRequest {
     private String address;
     private String emergencyContact;
     private Boolean isReportShared;
+    /** 호칭 (예: "할머니", "순자 어머니"). null이면 변경 안 함. */
+    private String honorific;
     /**
      * 손주 얼굴 사진 url. 빈 문자열로 보내면 초기화 의미로 처리.
      * 별도 필드로 둬서 다른 프로필 필드 변경 없이 사진만 갱신 가능.

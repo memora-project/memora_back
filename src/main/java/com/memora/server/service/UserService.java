@@ -47,7 +47,8 @@ public class UserService {
                 request.getPhoneNumber(),
                 request.getAddress(),
                 request.getEmergencyContact(),
-                request.getIsReportShared()
+                request.getIsReportShared(),
+                request.getHonorific()
         );
 
         // 손주 사진은 별도 필드 — null이면 변경 의도 없음, 빈 문자열이면 초기화 의도, 값이면 갱신.

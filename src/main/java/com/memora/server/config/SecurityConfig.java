@@ -66,6 +66,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/reset-password",
                                 "/api/v1/auth/verify-code",
                                 "/api/v1/auth/reset-password/confirm",
+                                "/api/v1/geo/**",
                                 "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"

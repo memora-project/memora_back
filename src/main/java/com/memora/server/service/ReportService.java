@@ -13,11 +13,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.memora.server.entity.DiarySegment;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 
@@ -132,12 +136,19 @@ public class ReportService {
         if (agg.totalEntries >= 1 && (report.getAiAnalysisSummary() == null || statsChanged)) {
             try {
                 String periodLabel = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) <= 7 ? "주간" : "월간";
+
+                // 장소/시간대 추출
+                List<Diary> diaries = diaryRepository
+                        .findByUserAndTargetDateBetweenOrderByTargetDateDesc(user, startDate, endDate);
+                List<String> topLocations = extractTopLocations(diaries);
+                List<String> activeTimeSlots = extractActiveTimeSlots(diaries);
+
                 String comment = aiService.generateReportComment(
-                        periodLabel, agg.distribution, agg.mostFrequentMood, agg.totalEntries);
+                        user, periodLabel, agg.distribution, agg.mostFrequentMood, agg.totalEntries,
+                        topLocations, activeTimeSlots);
                 report.updateAiAnalysisSummary(comment);
             } catch (Exception e) {
                 log.error("리포트 AI 코멘트 생성 실패", e);
-                // 실패해도 리포트 자체는 정상 반환
             }
         }
 
@@ -185,6 +196,45 @@ public class ReportService {
             Map<String, Long> distribution,
             int totalEntries,
             MoodType mostFrequentMood) {}
+
+    /**
+     * 기간 내 세그먼트에서 자주 방문한 장소 상위 3개 추출
+     */
+    private List<String> extractTopLocations(List<Diary> diaries) {
+        return diaries.stream()
+                .flatMap(d -> d.getSegments().stream())
+                .map(DiarySegment::getLocationName)
+                .filter(loc -> loc != null && !loc.isBlank())
+                .collect(Collectors.groupingBy(loc -> loc, Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(3)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    /**
+     * 기간 내 세그먼트의 활동 시간대 추출 (오전/오후/저녁)
+     */
+    private List<String> extractActiveTimeSlots(List<Diary> diaries) {
+        Map<String, Long> slotCounts = new LinkedHashMap<>();
+        for (Diary diary : diaries) {
+            for (DiarySegment seg : diary.getSegments()) {
+                if (seg.getTakenAt() != null) {
+                    int hour = seg.getTakenAt().getHour();
+                    String slot;
+                    if (hour < 12) slot = "오전";
+                    else if (hour < 18) slot = "오후";
+                    else slot = "저녁";
+                    slotCounts.merge(slot, 1L, Long::sum);
+                }
+            }
+        }
+        return slotCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .toList();
+    }
 
     private User findUserById(Integer userId) {
         return userRepository.findById(userId)

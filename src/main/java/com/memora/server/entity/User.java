@@ -46,6 +46,10 @@ public class User {
     @Column(length = 15)
     private String emergencyContact;
 
+    /** 사용자 호칭 (예: "할머니", "순자 어머니"). null이면 성별 기반 자동 결정. */
+    @Column(length = 20)
+    private String honorific;
+
     /** 손주 얼굴 사진 url(/uploads/...) — 홈 화면 빈 상태에서 이모지 대신 표시. */
     @Column(length = 500)
     private String grandchildPhotoUrl;
@@ -97,7 +101,8 @@ public class User {
      */
     public void updateProfile(String name, GenderType gender, LocalDate birthDate,
                               String phoneNumber, String address,
-                              String emergencyContact, Boolean isReportShared) {
+                              String emergencyContact, Boolean isReportShared,
+                              String honorific) {
         if (name != null) this.name = name;
         if (gender != null) this.gender = gender;
         if (birthDate != null) this.birthDate = birthDate;
@@ -105,6 +110,7 @@ public class User {
         if (address != null) this.address = address;
         if (emergencyContact != null) this.emergencyContact = emergencyContact;
         if (isReportShared != null) this.isReportShared = isReportShared;
+        if (honorific != null) this.honorific = honorific;
     }
 
     /**
