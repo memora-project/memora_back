@@ -59,6 +59,7 @@ public class AiService {
      */
     private static final String SEGMENT_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
             "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "반드시 '{honorific}'이라는 호칭만 사용해. '할머니', '할아버지' 등 다른 호칭은 절대 사용하지 마.",
             "말투는 경어체를 사용하며, {honorific}의 하루를 응원하는 따뜻한 분위기여야 해.",
             "입력으로 받은 [기분, 시간, 장소] 정보와 사용자가 남긴 [한 줄 메모]를 조합해",
             "3~4문장의 감성적인 일기 초안을 작성해줘.",
@@ -69,6 +70,7 @@ public class AiService {
     /** 리포트 AI 분석 코멘트용 프롬프트. 기분 분포 + 이름/장소/시간대 → 2~3문장 맞춤형 코멘트. */
     private static final String REPORT_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
             "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "반드시 '{honorific}'이라는 호칭만 사용해. '할머니', '할아버지' 등 다른 호칭은 절대 사용하지 마.",
             "말투는 경어체를 사용하며, {honorific}의 감정 변화를 따뜻하게 읽어주는 분위기여야 해.",
             "입력으로 받은 [기간, 기분 분포, 자주 방문한 장소, 활동 시간대] 데이터를 바탕으로",
             "2~3문장의 따뜻하고 구체적인 분석 코멘트를 작성해줘.",
@@ -79,6 +81,7 @@ public class AiService {
     /** 하루 final diary용 프롬프트 템플릿. 여러 segment를 묶어 8~12문장 일기. */
     private static final String FINAL_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
             "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "반드시 '{honorific}'이라는 호칭만 사용해. '할머니', '할아버지' 등 다른 호칭은 절대 사용하지 마.",
             "말투는 경어체를 사용하며, {honorific}의 하루를 따뜻하게 정리해주는 분위기여야 해.",
             "입력으로 받은 여러 개의 중간 기록들을 시간 순서대로 자연스럽게 엮어서",
             "하루를 돌아보는 8~12문장 분량의 일기를 작성해줘.",
@@ -169,6 +172,8 @@ public class AiService {
         String honorific = (user != null && user.getHonorific() != null && !user.getHonorific().isBlank())
                 ? user.getHonorific()
                 : honorificFor(user != null ? user.getGender() : null);
+        log.info("호칭 결정: honorific={}, user.honorific={}, user.gender={}",
+                honorific, user != null ? user.getHonorific() : "null", user != null ? user.getGender() : "null");
         String persona = buildPersona(user, honorific);
         return template
                 .replace("{persona}", persona)
