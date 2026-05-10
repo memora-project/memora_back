@@ -4,6 +4,8 @@ import com.memora.server.dto.diary.DiaryResponse;
 import com.memora.server.dto.segment.SegmentResponse;
 import com.memora.server.entity.Diary;
 import com.memora.server.entity.DiarySegment;
+import com.memora.server.entity.User;
+import com.memora.server.entity.enums.GenderType;
 import com.memora.server.entity.enums.MoodType;
 import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.DiarySegmentRepository;
@@ -11,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -36,20 +40,24 @@ public class AiService {
     private final OpenrouterService openrouterService;
     private final AiRateLimiter rateLimiter;
 
-    /** 단일 중간 기록(Segment)용 프롬프트. 한 번의 기록 → 3~4문장 초안. */
-    private static final String SEGMENT_SYSTEM_PROMPT = String.join(" ",
-            "너는 70대 어르신을 모시는 10대 다정하고 섬세한 손주야.",
-            "말투는 경어체를 사용하며, 어르신의 하루를 응원하는 따뜻한 분위기여야 해.",
+    /**
+     * 단일 중간 기록(Segment)용 프롬프트 템플릿. 한 번의 기록 → 3~4문장 초안.
+     * {persona} = "70대 김순자 할머니" 같은 호출 컨텍스트.
+     * {honorific} = "할머니"/"할아버지"/"어르신" — 페르소나 문장 안에서 재참조용.
+     */
+    private static final String SEGMENT_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
+            "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "말투는 경어체를 사용하며, {honorific}의 하루를 응원하는 따뜻한 분위기여야 해.",
             "입력으로 받은 [기분, 시간, 장소] 정보와 사용자가 남긴 [한 줄 메모]를 조합해",
             "3~4문장의 감성적인 일기 초안을 작성해줘.",
             "메모가 없다면 사진 정보를 기반으로 따뜻한 상상을 더해줘.",
             "결과는 따로 머리말이나 인용부호 없이 일기 본문만 출력해."
     );
 
-    /** 하루 final diary용 프롬프트. 여러 segment를 묶어 8~12문장 일기. */
-    private static final String FINAL_SYSTEM_PROMPT = String.join(" ",
-            "너는 70대 어르신을 모시는 10대 다정하고 섬세한 손주야.",
-            "말투는 경어체를 사용하며, 어르신의 하루를 따뜻하게 정리해주는 분위기여야 해.",
+    /** 하루 final diary용 프롬프트 템플릿. 여러 segment를 묶어 8~12문장 일기. */
+    private static final String FINAL_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
+            "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "말투는 경어체를 사용하며, {honorific}의 하루를 따뜻하게 정리해주는 분위기여야 해.",
             "입력으로 받은 여러 개의 중간 기록들을 시간 순서대로 자연스럽게 엮어서",
             "하루를 돌아보는 8~12문장 분량의 일기를 작성해줘.",
             "각 중간 기록의 한 줄 메모(있는 경우)와 AI 초안을 모두 참고해.",
@@ -67,8 +75,10 @@ public class AiService {
         DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
         rateLimiter.check(userId);
 
+        User user = segment.getDiary().getUser();
+        String systemPrompt = resolvePersona(SEGMENT_SYSTEM_PROMPT_TEMPLATE, user);
         String userPrompt = buildSegmentUserPrompt(segment);
-        String draft = openrouterService.chat(SEGMENT_SYSTEM_PROMPT, userPrompt);
+        String draft = openrouterService.chat(systemPrompt, userPrompt);
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
@@ -91,11 +101,65 @@ public class AiService {
 
         rateLimiter.check(userId);
 
+        String systemPrompt = resolvePersona(FINAL_SYSTEM_PROMPT_TEMPLATE, diary.getUser());
         String userPrompt = buildDiaryUserPrompt(segments);
-        String draft = openrouterService.chat(FINAL_SYSTEM_PROMPT, userPrompt);
+        String draft = openrouterService.chat(systemPrompt, userPrompt);
 
         diary.updateAiDraft(draft);
         return DiaryResponse.from(diary);
+    }
+
+    // ------------------------------------------------------------- persona resolver
+
+    /**
+     * 사용자 정보로 시스템 프롬프트의 {persona} / {honorific} 자리표시자를 채운다.
+     *
+     * 예) name="김순자", gender=FEMALE, birthDate=1955-03-15
+     *     → persona="70대 김순자 할머니", honorific="할머니"
+     *
+     * 누락 처리:
+     *  - birthDate null → 나이대 생략
+     *  - name null/blank → 이름 생략
+     *  - gender null/OTHER → "어르신" (중성)
+     */
+    private String resolvePersona(String template, User user) {
+        String honorific = honorificFor(user != null ? user.getGender() : null);
+        String persona = buildPersona(user, honorific);
+        return template
+                .replace("{persona}", persona)
+                .replace("{honorific}", honorific);
+    }
+
+    private String buildPersona(User user, String honorific) {
+        if (user == null) return honorific;
+
+        StringBuilder sb = new StringBuilder();
+        int decade = ageDecade(user.getBirthDate());
+        if (decade > 0) {
+            sb.append(decade).append("대 ");
+        }
+        String name = user.getName();
+        if (name != null && !name.isBlank()) {
+            sb.append(name.trim()).append(" ");
+        }
+        sb.append(honorific);
+        return sb.toString();
+    }
+
+    private String honorificFor(GenderType g) {
+        if (g == null) return "어르신";
+        return switch (g) {
+            case FEMALE -> "할머니";
+            case MALE -> "할아버지";
+            default -> "어르신"; // OTHER 등
+        };
+    }
+
+    private int ageDecade(LocalDate birthDate) {
+        if (birthDate == null) return 0;
+        int age = Period.between(birthDate, LocalDate.now()).getYears();
+        if (age < 0) return 0;
+        return (age / 10) * 10;
     }
 
     // ------------------------------------------------------------- prompt builders
