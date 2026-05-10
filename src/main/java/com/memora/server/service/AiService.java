@@ -66,12 +66,13 @@ public class AiService {
             "결과는 따로 머리말이나 인용부호 없이 일기 본문만 출력해."
     );
 
-    /** 리포트 AI 분석 코멘트용 프롬프트. 기분 분포 데이터 → 1~2문장 따뜻한 코멘트. */
-    private static final String REPORT_SYSTEM_PROMPT = String.join(" ",
-            "너는 70대 어르신을 모시는 10대 다정하고 섬세한 손주야.",
-            "말투는 경어체를 사용하며, 어르신의 감정 변화를 따뜻하게 읽어주는 분위기여야 해.",
-            "입력으로 받은 [기간, 기분 분포, 가장 빈번한 기분, 총 작성 수] 데이터를 바탕으로",
-            "1~2문장의 따뜻하고 격려하는 분석 코멘트를 작성해줘.",
+    /** 리포트 AI 분석 코멘트용 프롬프트. 기분 분포 + 이름/장소/시간대 → 2~3문장 맞춤형 코멘트. */
+    private static final String REPORT_SYSTEM_PROMPT_TEMPLATE = String.join(" ",
+            "너는 {persona}를 모시는 10대 다정하고 섬세한 손주야.",
+            "말투는 경어체를 사용하며, {honorific}의 감정 변화를 따뜻하게 읽어주는 분위기여야 해.",
+            "입력으로 받은 [기간, 기분 분포, 자주 방문한 장소, 활동 시간대] 데이터를 바탕으로",
+            "2~3문장의 따뜻하고 구체적인 분석 코멘트를 작성해줘.",
+            "가능하면 장소나 시간대를 언급하여 개인화된 느낌을 줘.",
             "결과는 따로 머리말이나 인용부호 없이 코멘트 본문만 출력해."
     );
 
@@ -164,7 +165,10 @@ public class AiService {
      *  - gender null/OTHER → "어르신" (중성)
      */
     private String resolvePersona(String template, User user) {
-        String honorific = honorificFor(user != null ? user.getGender() : null);
+        // 사용자가 설정한 호칭이 있으면 우선 사용, 없으면 성별 기반 자동 결정
+        String honorific = (user != null && user.getHonorific() != null && !user.getHonorific().isBlank())
+                ? user.getHonorific()
+                : honorificFor(user != null ? user.getGender() : null);
         String persona = buildPersona(user, honorific);
         return template
                 .replace("{persona}", persona)
@@ -283,14 +287,20 @@ public class AiService {
     /**
      * 리포트 AI 분석 코멘트 생성.
      *
-     * @param periodLabel  "주간" 또는 "월간"
-     * @param distribution 기분 분포 (예: {GREAT: 3, CALM: 2, SAD: 1})
+     * @param user             사용자 (이름/성별/나이 → 호칭)
+     * @param periodLabel      "주간" 또는 "월간"
+     * @param distribution     기분 분포 (예: {GREAT: 3, CALM: 2, SAD: 1})
      * @param mostFrequentMood 가장 빈번한 기분
-     * @param totalEntries 총 작성 수
-     * @return 1~2문장 코멘트
+     * @param totalEntries     총 작성 수
+     * @param topLocations     자주 방문한 장소 목록
+     * @param activeTimeSlots  활동 시간대 (예: "오전", "오후")
+     * @return 2~3문장 맞춤형 코멘트
      */
-    public String generateReportComment(String periodLabel, Map<String, Long> distribution,
-                                        MoodType mostFrequentMood, int totalEntries) {
+    public String generateReportComment(User user, String periodLabel, Map<String, Long> distribution,
+                                        MoodType mostFrequentMood, int totalEntries,
+                                        List<String> topLocations, List<String> activeTimeSlots) {
+        String systemPrompt = resolvePersona(REPORT_SYSTEM_PROMPT_TEMPLATE, user);
+
         StringBuilder sb = new StringBuilder();
         sb.append("기간: ").append(periodLabel).append(" 리포트\n");
         sb.append("총 기록 수: ").append(totalEntries).append("개\n");
@@ -302,8 +312,14 @@ public class AiService {
                         .append(": ").append(entry.getValue()).append("회\n");
             }
         }
+        if (topLocations != null && !topLocations.isEmpty()) {
+            sb.append("자주 방문한 장소: ").append(String.join(", ", topLocations)).append("\n");
+        }
+        if (activeTimeSlots != null && !activeTimeSlots.isEmpty()) {
+            sb.append("주요 활동 시간대: ").append(String.join(", ", activeTimeSlots)).append("\n");
+        }
 
-        return openrouterService.chat(REPORT_SYSTEM_PROMPT, sb.toString());
+        return openrouterService.chat(systemPrompt, sb.toString());
     }
 
     // ------------------------------------------------------------- ownership helpers

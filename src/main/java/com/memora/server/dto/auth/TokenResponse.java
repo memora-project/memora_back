@@ -9,11 +9,11 @@ import lombok.Getter;
  * 로그인 성공 시 프론트에 보내는 데이터:
  * {
  *     "accessToken": "eyJhbGci...",
- *     "refreshToken": "eyJhbGci..."
+ *     "refreshToken": "eyJhbGci...",
+ *     "isNewUser": false
  * }
  *
- * 프론트는 이 토큰을 저장해두고,
- * API 호출할 때마다 accessToken을 헤더에 담아서 보냄
+ * isNewUser가 true면 프론트에서 추가 정보 입력 화면으로 이동
  */
 @Getter
 @AllArgsConstructor
@@ -21,4 +21,11 @@ public class TokenResponse {
 
     private String accessToken;
     private String refreshToken;
+    private Boolean isNewUser;
+
+    public TokenResponse(String accessToken, String refreshToken) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.isNewUser = false;
+    }
 }

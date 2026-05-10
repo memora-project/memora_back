@@ -118,9 +118,10 @@ public class AuthService {
         KakaoService.KakaoUserInfo kakaoUserInfo = kakaoService.getUserInfo(kakaoAccessToken);
 
         // 2. kakaoId로 기존 사용자인지 확인
+        boolean[] isNew = {false};
         User user = userRepository.findByKakaoId(kakaoUserInfo.getKakaoId())
                 .orElseGet(() -> {
-                    // 없으면 → 자동 회원가입 (loginId는 카카오ID 기반으로 생성)
+                    isNew[0] = true;
                     User newUser = User.builder()
                             .kakaoId(kakaoUserInfo.getKakaoId())
                             .loginId("kakao_" + kakaoUserInfo.getKakaoId())
@@ -129,8 +130,8 @@ public class AuthService {
                     return userRepository.save(newUser);
                 });
 
-        // 3. JWT 토큰 발급
-        return createAndSaveTokens(user);
+        // 3. JWT 토큰 발급 (신규 가입이면 isNewUser=true)
+        return createAndSaveTokens(user, isNew[0]);
     }
 
     /**
@@ -247,12 +248,16 @@ public class AuthService {
      * 토큰 생성 + Refresh Token DB 저장
      */
     private TokenResponse createAndSaveTokens(User user) {
+        return createAndSaveTokens(user, false);
+    }
+
+    private TokenResponse createAndSaveTokens(User user, boolean isNewUser) {
         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
 
         // Refresh Token을 DB에 저장 (로그아웃 시 삭제용)
         user.updateRefreshToken(refreshToken);
 
-        return new TokenResponse(accessToken, refreshToken);
+        return new TokenResponse(accessToken, refreshToken, isNewUser);
     }
 }

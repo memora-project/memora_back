@@ -41,6 +41,7 @@ public class UserResponse {
     private String address;
     private String emergencyContact;
     private Boolean isReportShared;
+    private String honorific;
     private Boolean isKakaoUser;
     private OffsetDateTime createdAt;
     private String grandchildPhotoUrl;
@@ -60,7 +61,8 @@ public class UserResponse {
                 user.getAddress(),
                 user.getEmergencyContact(),
                 user.getIsReportShared(),
-                user.getKakaoId() != null,  // kakaoId가 있으면 카카오 유저
+                user.getHonorific(),
+                user.getKakaoId() != null,
                 user.getCreatedAt(),
                 user.getGrandchildPhotoUrl()
         );
