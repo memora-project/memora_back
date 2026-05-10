@@ -23,12 +23,14 @@ public class SettingsResponse {
     private FontSize fontSize;
     private Boolean notificationEnabled;
     private LocalTime reminderTime;
+    private LocalTime autoCompleteTime;
 
     public static SettingsResponse from(UserSettings settings) {
         return new SettingsResponse(
                 settings.getFontSize(),
                 settings.getNotificationEnabled(),
-                settings.getReminderTime()
+                settings.getReminderTime(),
+                settings.getAutoCompleteTime()
         );
     }
 }
