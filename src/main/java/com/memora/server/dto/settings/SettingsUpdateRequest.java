@@ -20,4 +20,6 @@ public class SettingsUpdateRequest {
     private FontSize fontSize;
     private Boolean notificationEnabled;
     private LocalTime reminderTime;
+    /** 최종일기 미작성 시 자동 완료 시간 (예: "23:00") */
+    private LocalTime autoCompleteTime;
 }

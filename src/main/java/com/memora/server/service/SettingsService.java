@@ -40,7 +40,7 @@ public class SettingsService {
     @Transactional
     public SettingsResponse updateSettings(Integer userId, SettingsUpdateRequest request) {
         UserSettings settings = getOrCreateSettings(userId);
-        settings.update(request.getFontSize(), request.getNotificationEnabled(), request.getReminderTime());
+        settings.update(request.getFontSize(), request.getNotificationEnabled(), request.getReminderTime(), request.getAutoCompleteTime());
         return SettingsResponse.from(settings);
     }
 

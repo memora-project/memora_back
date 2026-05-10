@@ -41,12 +41,18 @@ public class UserSettings {
     @Column(nullable = false)
     private LocalTime reminderTime = LocalTime.of(20, 0);
 
+    /** 최종일기 미작성 시 자동 완료 시간. 기본 자정(00:00). */
+    @Builder.Default
+    @Column(nullable = false)
+    private LocalTime autoCompleteTime = LocalTime.of(0, 0);
+
     /**
      * 설정 변경
      */
-    public void update(FontSize fontSize, Boolean notificationEnabled, LocalTime reminderTime) {
+    public void update(FontSize fontSize, Boolean notificationEnabled, LocalTime reminderTime, LocalTime autoCompleteTime) {
         if (fontSize != null) this.fontSize = fontSize;
         if (notificationEnabled != null) this.notificationEnabled = notificationEnabled;
         if (reminderTime != null) this.reminderTime = reminderTime;
+        if (autoCompleteTime != null) this.autoCompleteTime = autoCompleteTime;
     }
 }
