@@ -45,4 +45,4 @@ jwt:
 openrouter:
   api-key: ${OPENROUTER_API_KEY}
   endpoint: https://openrouter.ai/api/v1/chat/completions
-  model: anthropic/claude-sonnet-4.5
+  model: openai/gpt-4o
