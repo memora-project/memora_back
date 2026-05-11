@@ -39,6 +39,9 @@ public class QuizService {
     private final Random random = new Random();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // 사용자별 최근 출제된 세그먼트 ID 기록 (같은 문제 반복 방지)
+    private final java.util.concurrent.ConcurrentHashMap<Integer, java.util.Deque<Integer>> recentQuizzes = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
@@ -68,13 +71,32 @@ public class QuizService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        List<DiarySegment> candidates = segmentRepository.findQuizCandidates(user);
+        // 완료된 일기(COMPLETED)의 세그먼트만 퀴즈 대상
+        List<DiarySegment> candidates = segmentRepository.findQuizCandidates(user).stream()
+                .filter(s -> s.getDiary().getStatus() == com.memora.server.entity.enums.DiaryStatus.COMPLETED)
+                .toList();
 
         if (candidates.isEmpty()) {
-            throw new IllegalArgumentException("퀴즈를 만들 사진이 아직 없어요. 사진과 함께 일기를 작성해보세요!");
+            throw new IllegalArgumentException("최종 일기를 작성해야 퀴즈를 만들 수 있어요!");
         }
 
-        DiarySegment selected = candidates.get(random.nextInt(candidates.size()));
+        // 최근 출제된 문제 제외
+        java.util.Deque<Integer> recent = recentQuizzes.computeIfAbsent(userId, k -> new java.util.ArrayDeque<>());
+        List<DiarySegment> fresh = candidates.stream()
+                .filter(s -> !recent.contains(s.getSegmentId()))
+                .toList();
+
+        // 전부 출제됐으면 기록 초기화 후 전체 후보에서 선택
+        if (fresh.isEmpty()) {
+            recent.clear();
+            fresh = candidates;
+        }
+
+        DiarySegment selected = fresh.get(random.nextInt(fresh.size()));
+
+        // 출제 기록 저장 (최대 10개)
+        recent.addLast(selected.getSegmentId());
+        if (recent.size() > 10) recent.pollFirst();
 
         // 기록 데이터 조합
         StringBuilder context = new StringBuilder();
