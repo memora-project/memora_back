@@ -10,7 +10,7 @@
 | Backend | Spring Boot 4.0.5 / Java 21 |
 | Database | PostgreSQL 14 |
 | Authentication | JWT + 카카오 소셜 로그인 |
-| AI | OpenRouter (Gemini 2.5 Flash) |
+| AI | OpenRouter (OpenAI GPT-4o) |
 | Push | Firebase Cloud Messaging |
 | Email | Gmail SMTP |
 
