@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
  * AI 일기 초안 생성 엔드포인트.
  *
  * 모든 URL은 /api/v1/diaries 하위. 토큰 필수.
- * 클라이언트(앱)에는 OpenRouter 키도, 시스템 프롬프트도 노출되지 않는다.
+ * 클라이언트(앱)에는 Gemini API 키도, 시스템 프롬프트도 노출되지 않는다.
  */
 @RestController
 @RequestMapping("/api/v1/diaries")

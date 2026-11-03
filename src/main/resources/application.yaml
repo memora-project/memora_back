@@ -46,7 +46,8 @@ jwt:
   access-token-validity: 31536000000    # 1년
   refresh-token-validity: 31536000000   # 1년
 
-openrouter:
-  api-key: ${OPENROUTER_API_KEY}
-  endpoint: https://openrouter.ai/api/v1/chat/completions
-  model: openai/gpt-4o
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  endpoint: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+  model: ${GEMINI_MODEL:gemini-3.8-flash}
+  fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-3.5-flash-lite}

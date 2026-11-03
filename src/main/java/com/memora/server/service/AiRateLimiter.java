@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 목적:
  *  - 사용자가 "다시 작성"을 빠르게 연타하거나 클라이언트 버그 루프로
- *    OpenRouter 비용이 폭주하는 것을 막는다.
+ *    AI API 호출이 폭주하는 것을 막는다.
  */
 @Component
 public class AiRateLimiter {

@@ -35,7 +35,7 @@ public class QuizService {
 
     private final DiarySegmentRepository segmentRepository;
     private final UserRepository userRepository;
-    private final OpenrouterService openrouterService;
+    private final AiClient aiClient;
     private final Random random = new Random();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -135,7 +135,7 @@ public class QuizService {
         }
 
         // AI 호출
-        String aiResponse = openrouterService.chatWithVision(QUIZ_SYSTEM_PROMPT, context.toString(), base64Image, mimeType);
+        String aiResponse = aiClient.chatWithVision(QUIZ_SYSTEM_PROMPT, context.toString(), base64Image, mimeType);
 
         // JSON 파싱
         try {

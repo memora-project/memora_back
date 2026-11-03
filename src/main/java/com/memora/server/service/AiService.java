@@ -33,7 +33,7 @@ import java.util.Map;
  *  - 본인 소유 검증 (다른 사용자 일기/세그먼트로 AI 호출 차단)
  *  - 호출 빈도 제한
  *  - DB 데이터 → 프롬프트 변환
- *  - OpenrouterService로 호출 위임
+ *  - AiClient로 AI 모델 호출 위임
  *  - 결과를 entity의 aiDraft 컬럼에 저장
  *
  * 시스템 프롬프트는 서버에서만 관리한다. 클라이언트로 절대 노출 X.
@@ -46,7 +46,7 @@ public class AiService {
 
     private final DiaryRepository diaryRepository;
     private final DiarySegmentRepository segmentRepository;
-    private final OpenrouterService openrouterService;
+    private final AiClient aiClient;
     private final AiRateLimiter rateLimiter;
 
     @Value("${file.upload-dir:uploads}")
@@ -94,7 +94,7 @@ public class AiService {
     /**
      * 단일 세그먼트(중간 기록) AI 초안 생성/재생성.
      *
-     * 흐름: ownership 검증 → rate limit 체크 → 프롬프트 조립 → OpenRouter 호출
+     * 흐름: ownership 검증 → rate limit 체크 → 프롬프트 조립 → Gemini 호출
      *      → segment.aiDraft 저장 → SegmentResponse 반환
      */
     @Transactional
@@ -125,7 +125,7 @@ public class AiService {
             }
         }
 
-        String draft = openrouterService.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
+        String draft = aiClient.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
@@ -135,7 +135,7 @@ public class AiService {
      * 하루 final diary 초안 생성/재생성.
      *
      * 흐름: ownership 검증 → segments 조회 → rate limit 체크 → 종합 프롬프트 조립
-     *      → OpenRouter 호출 → diary.aiDraft 저장 → DiaryResponse 반환
+     *      → Gemini 호출 → diary.aiDraft 저장 → DiaryResponse 반환
      */
     @Transactional
     public DiaryResponse generateDiaryDraft(Integer userId, Integer diaryId) {
@@ -150,7 +150,7 @@ public class AiService {
 
         String systemPrompt = resolvePersona(FINAL_SYSTEM_PROMPT_TEMPLATE, diary.getUser());
         String userPrompt = buildDiaryUserPrompt(segments);
-        String draft = openrouterService.chat(systemPrompt, userPrompt);
+        String draft = aiClient.chat(systemPrompt, userPrompt);
 
         diary.updateAiDraft(draft);
         return DiaryResponse.from(diary);
@@ -326,7 +326,7 @@ public class AiService {
             sb.append("주요 활동 시간대: ").append(String.join(", ", activeTimeSlots)).append("\n");
         }
 
-        return openrouterService.chat(systemPrompt, sb.toString());
+        return aiClient.chat(systemPrompt, sb.toString());
     }
 
     // ------------------------------------------------------------- ownership helpers
