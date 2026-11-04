@@ -3,9 +3,12 @@ package com.memora.server.service;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -23,13 +26,30 @@ public class KakaoService {
     private static final String KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token";
     private static final String KAKAO_USER_INFO_URL = "https://kapi.kakao.com/v2/user/me";
 
-    private final RestClient restClient = RestClient.create();
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
+    private final RestClient restClient = createRestClient();
 
     @Value("${kakao.rest-api-key}")
     private String restApiKey;
 
     @Value("${kakao.client-secret}")
     private String clientSecret;
+
+    /**
+     * 카카오 서버가 응답하지 않을 때 요청 스레드가 오래 묶이지 않도록 연결/응답 시간을 제한한다.
+     */
+    private static RestClient createRestClient() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .build();
+    }
 
     /**
      * 인가코드 → 카카오 Access Token 교환

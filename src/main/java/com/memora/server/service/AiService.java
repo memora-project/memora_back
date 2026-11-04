@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
@@ -113,9 +112,10 @@ public class AiService {
 
         if (photoUrl != null) {
             try {
-                Path filePath = Paths.get(uploadDir).toAbsolutePath()
-                        .resolve(photoUrl.replace("/uploads/", ""));
-                if (Files.exists(filePath)) {
+                Path filePath = FileService.resolveUploadedFile(uploadDir, photoUrl);
+                if (filePath == null) {
+                    log.warn("업로드 폴더 밖 경로라 사진을 읽지 않음: {}", photoUrl);
+                } else if (Files.exists(filePath)) {
                     base64Image = Base64.getEncoder().encodeToString(Files.readAllBytes(filePath));
                     mimeType = Files.probeContentType(filePath);
                     if (mimeType == null) mimeType = "image/jpeg";

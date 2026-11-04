@@ -2,10 +2,13 @@ package com.memora.server.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -19,10 +22,27 @@ import java.util.Map;
 @Service
 public class GeocodingService {
 
-    private final RestClient restClient = RestClient.create();
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
+    private final RestClient restClient = createRestClient();
 
     @Value("${kakao.rest-api-key}")
     private String kakaoApiKey;
+
+    /**
+     * 카카오 로컬 API가 응답하지 않을 때 중간 기록 저장이 오래 멈추지 않도록 연결/응답 시간을 제한한다.
+     */
+    private static RestClient createRestClient() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .build();
+    }
 
     /**
      * 위도/경도를 주소로 변환

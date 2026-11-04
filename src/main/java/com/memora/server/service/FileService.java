@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
@@ -71,6 +72,42 @@ public class FileService {
 
         // 5. 접근 URL 반환
         return "/uploads/" + savedFilename;
+    }
+
+    /**
+     * 저장된 photoUrl(예: /uploads/abc.jpg)을 업로드 폴더 안의 실제 파일 경로로 변환.
+     *
+     * 경로 탈출(../), 절대 경로, 업로드 폴더 밖을 가리키는 값은 모두 null을 반환한다.
+     * 사용자가 보낸 photoUrl을 그대로 파일 경로로 쓰면 서버의 임의 파일을 읽을 수 있기 때문.
+     *
+     * @param uploadDir 업로드 폴더 설정값 (file.upload-dir)
+     * @param photoUrl  DB에 저장된 사진 URL
+     * @return 업로드 폴더 안의 정규화된 경로, 안전하지 않으면 null
+     */
+    public static Path resolveUploadedFile(String uploadDir, String photoUrl) {
+        if (photoUrl == null || photoUrl.isBlank()) {
+            return null;
+        }
+        String filename = photoUrl.startsWith("/uploads/")
+                ? photoUrl.substring("/uploads/".length())
+                : photoUrl;
+        if (filename.isBlank()) {
+            return null;
+        }
+        try {
+            Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+            Path candidate = Paths.get(filename);
+            if (candidate.isAbsolute() || candidate.getRoot() != null) {
+                return null;
+            }
+            Path resolved = root.resolve(candidate).normalize();
+            if (!resolved.startsWith(root) || resolved.equals(root)) {
+                return null;
+            }
+            return resolved;
+        } catch (InvalidPathException e) {
+            return null;
+        }
     }
 
     /**

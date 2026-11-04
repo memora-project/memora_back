@@ -193,6 +193,12 @@ public class AuthService {
      */
     @Transactional
     public void confirmPasswordReset(String resetToken, String newPassword) {
+        // 토큰이 비어 있으면 조회 자체를 하지 않는다.
+        // null로 조회하면 "reset_token IS NULL" 조건이 되어 재설정을 요청하지 않은 사용자가 잡힌다.
+        if (resetToken == null || resetToken.isBlank()) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
         User user = userRepository.findByResetToken(resetToken)
                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 토큰입니다."));
 
