@@ -1,0 +1,16 @@
+server:
+  address: 0.0.0.0
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    show-sql: false
+

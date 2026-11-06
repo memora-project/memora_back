@@ -38,7 +38,6 @@ out/
 
 
 # Database & Secret Keys (MUST BE IGNORED)
-src/main/resources/application.yml
 src/main/resources/application.properties
 .env
 .env.*

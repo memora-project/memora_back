@@ -1,0 +1,12 @@
+.git
+.gradle
+build
+.idea
+.env
+.env.*
+*.jks
+*.keystore
+*.pem
+*.p12
+uploads
+src/main/resources/firebase-service-account.json
