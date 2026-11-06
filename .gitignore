@@ -41,5 +41,13 @@ out/
 src/main/resources/application.yml
 src/main/resources/application.properties
 .env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.p12
+local.properties
+*.log
 uploads/
 src/main/resources/firebase-service-account.json
