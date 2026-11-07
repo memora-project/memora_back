@@ -142,7 +142,9 @@ public class AuthService {
                 null, null, null, null);
 
         // 3. JWT 토큰 발급 (신규 가입이면 isNewUser=true)
-        return createAndSaveTokens(user, isNew[0]);
+        TokenResponse tokens = createAndSaveTokens(user, isNew[0]);
+        return new TokenResponse(tokens.getAccessToken(), tokens.getRefreshToken(),
+                tokens.getIsNewUser(), kakaoUserInfo.getAdditionalConsentScopes());
     }
 
     /**

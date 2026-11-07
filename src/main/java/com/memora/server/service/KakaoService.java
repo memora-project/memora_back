@@ -11,6 +11,8 @@ import org.springframework.web.client.RestClient;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -99,7 +101,13 @@ public class KakaoService {
             throw new IllegalArgumentException("카카오 사용자 정보를 가져올 수 없습니다.");
         }
 
-        return parseUserInfo(response);
+        KakaoUserInfo info = parseUserInfo(response);
+        org.slf4j.LoggerFactory.getLogger(KakaoService.class).info(
+                "Kakao profile availability: name={}, gender={}, birthDate={}, phone={}, additionalConsentScopes={}",
+                !"카카오 사용자".equals(info.getName()), info.getGender() != null,
+                info.getBirthDate() != null, info.getPhoneNumber() != null,
+                info.getAdditionalConsentScopes());
+        return info;
     }
 
     static KakaoUserInfo parseUserInfo(Map<?, ?> response) {
@@ -147,7 +155,27 @@ public class KakaoService {
             if (digits.matches("0\\d{9,10}")) phoneNumber = digits;
         }
 
-        return new KakaoUserInfo(kakaoId, name, gender, birthDate, phoneNumber);
+        List<String> additionalConsentScopes = new ArrayList<>();
+        if (nonBlank(account.get("name")) == null && Boolean.TRUE.equals(account.get("name_needs_agreement"))) {
+            additionalConsentScopes.add("name");
+        }
+        if (nickname == null && Boolean.TRUE.equals(account.get("profile_nickname_needs_agreement"))) {
+            additionalConsentScopes.add("profile_nickname");
+        }
+        if (gender == null && Boolean.TRUE.equals(account.get("gender_needs_agreement"))) {
+            additionalConsentScopes.add("gender");
+        }
+        if (birthyear == null && Boolean.TRUE.equals(account.get("birthyear_needs_agreement"))) {
+            additionalConsentScopes.add("birthyear");
+        }
+        if (birthday == null && Boolean.TRUE.equals(account.get("birthday_needs_agreement"))) {
+            additionalConsentScopes.add("birthday");
+        }
+        if (phoneNumber == null && Boolean.TRUE.equals(account.get("phone_number_needs_agreement"))) {
+            additionalConsentScopes.add("phone_number");
+        }
+
+        return new KakaoUserInfo(kakaoId, name, gender, birthDate, phoneNumber, additionalConsentScopes);
     }
 
     private static String nonBlank(Object value) {
@@ -162,14 +190,21 @@ public class KakaoService {
         private final GenderType gender;
         private final LocalDate birthDate;
         private final String phoneNumber;
+        private final List<String> additionalConsentScopes;
 
         public KakaoUserInfo(String kakaoId, String name, GenderType gender,
                              LocalDate birthDate, String phoneNumber) {
+            this(kakaoId, name, gender, birthDate, phoneNumber, List.of());
+        }
+
+        public KakaoUserInfo(String kakaoId, String name, GenderType gender,
+                             LocalDate birthDate, String phoneNumber, List<String> additionalConsentScopes) {
             this.kakaoId = kakaoId;
             this.name = name;
             this.gender = gender;
             this.birthDate = birthDate;
             this.phoneNumber = phoneNumber;
+            this.additionalConsentScopes = List.copyOf(additionalConsentScopes);
         }
     }
 }

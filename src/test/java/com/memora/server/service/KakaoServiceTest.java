@@ -45,4 +45,20 @@ class KakaoServiceTest {
         assertNull(info.getBirthDate());
         assertNull(info.getPhoneNumber());
     }
+
+    @Test
+    void requestsOnlyMissingFieldsThatKakaoMarksAsRequiringConsent() {
+        var info = KakaoService.parseUserInfo(Map.of(
+                "id", 9,
+                "kakao_account", Map.of(
+                        "name_needs_agreement", true,
+                        "gender_needs_agreement", true,
+                        "birthyear_needs_agreement", true,
+                        "birthday_needs_agreement", true,
+                        "phone_number_needs_agreement", true)));
+
+        assertEquals("카카오 사용자", info.getName());
+        assertEquals(java.util.List.of("name", "gender", "birthyear", "birthday", "phone_number"),
+                info.getAdditionalConsentScopes());
+    }
 }

@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -91,6 +93,12 @@ public class QuizService {
         // 출제 기록 저장 (최대 10개)
         recent.addLast(selected.getSegmentId());
         if (recent.size() > 10) recent.pollFirst();
+
+        // A photo without location metadata can still produce a factual quiz.
+        // Do not ask the AI to invent a place that the diary never recorded.
+        if (selected.getLocationName() == null || selected.getLocationName().isBlank()) {
+            return dateQuiz(selected);
+        }
 
         // 기록 데이터 조합
         StringBuilder context = new StringBuilder();
@@ -191,6 +199,8 @@ public class QuizService {
         String correctAnswer = selected.getLocationName();
         List<String> otherLocations = candidates.stream()
                 .map(DiarySegment::getLocationName)
+                .filter(Objects::nonNull)
+                .filter(loc -> !loc.isBlank())
                 .filter(loc -> !loc.equals(correctAnswer))
                 .distinct()
                 .toList();
@@ -216,6 +226,27 @@ public class QuizService {
                 choices,
                 correctAnswer,
                 selected.getDiary().getTargetDate().toString()
+        );
+    }
+
+    private QuizResponse dateQuiz(DiarySegment selected) {
+        LocalDate date = selected.getDiary().getTargetDate();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("M월 d일");
+        String correctAnswer = date.format(formatter);
+        List<String> choices = new ArrayList<>(List.of(
+                date.minusDays(2).format(formatter),
+                date.minusDays(1).format(formatter),
+                correctAnswer,
+                date.plusDays(1).format(formatter)
+        ));
+        Collections.shuffle(choices);
+        return new QuizResponse(
+                selected.getSegmentId(),
+                selected.getPhotoUrl(),
+                "이 사진은 언제 찍은 걸까요?",
+                choices,
+                correctAnswer,
+                date.toString()
         );
     }
 }
