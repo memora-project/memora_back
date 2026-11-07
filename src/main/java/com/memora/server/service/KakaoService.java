@@ -1,5 +1,6 @@
 package com.memora.server.service;
 
+import com.memora.server.entity.enums.GenderType;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -9,6 +10,7 @@ import org.springframework.web.client.RestClient;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -97,22 +99,77 @@ public class KakaoService {
             throw new IllegalArgumentException("카카오 사용자 정보를 가져올 수 없습니다.");
         }
 
+        return parseUserInfo(response);
+    }
+
+    static KakaoUserInfo parseUserInfo(Map<?, ?> response) {
         String kakaoId = String.valueOf(response.get("id"));
+        Map<?, ?> account = response.get("kakao_account") instanceof Map<?, ?> value ? value : Map.of();
+        Map<?, ?> profile = account.get("profile") instanceof Map<?, ?> value ? value : Map.of();
+        Map<?, ?> properties = response.get("properties") instanceof Map<?, ?> value ? value : Map.of();
 
-        Map properties = (Map) response.get("properties");
-        String nickname = properties != null ? (String) properties.get("nickname") : "카카오 사용자";
+        String nickname = nonBlank(profile.get("nickname"));
+        if (nickname == null) nickname = nonBlank(properties.get("nickname"));
+        String name = nonBlank(account.get("name"));
+        if (name == null) name = nickname;
+        if (name == null) name = "카카오 사용자";
+        if (name.length() > 20) name = name.substring(0, 20);
 
-        return new KakaoUserInfo(kakaoId, nickname);
+        GenderType gender = switch (String.valueOf(account.get("gender"))) {
+            case "male" -> GenderType.MALE;
+            case "female" -> GenderType.FEMALE;
+            default -> null;
+        };
+
+        LocalDate birthDate = null;
+        String birthyear = nonBlank(account.get("birthyear"));
+        String birthday = nonBlank(account.get("birthday"));
+        // The app stores a Gregorian date. A lunar birthday cannot be converted without more data.
+        if (birthyear != null && birthday != null && birthyear.matches("\\d{4}")
+                && birthday.matches("\\d{4}") && "SOLAR".equals(account.get("birthday_type"))) {
+            try {
+                birthDate = LocalDate.of(Integer.parseInt(birthyear),
+                        Integer.parseInt(birthday.substring(0, 2)),
+                        Integer.parseInt(birthday.substring(2, 4)));
+            } catch (java.time.DateTimeException ignored) {
+                // Missing or invalid Kakao birthday remains for the user to enter.
+            }
+        }
+
+        String phoneNumber = null;
+        String kakaoPhone = nonBlank(account.get("phone_number"));
+        if (kakaoPhone != null) {
+            String digits = kakaoPhone.replaceAll("\\D", "");
+            if (digits.startsWith("82")) {
+                digits = digits.substring(2);
+                if (!digits.startsWith("0")) digits = "0" + digits;
+            }
+            if (digits.matches("0\\d{9,10}")) phoneNumber = digits;
+        }
+
+        return new KakaoUserInfo(kakaoId, name, gender, birthDate, phoneNumber);
+    }
+
+    private static String nonBlank(Object value) {
+        if (!(value instanceof String text) || text.isBlank()) return null;
+        return text.trim();
     }
 
     @Getter
     public static class KakaoUserInfo {
         private final String kakaoId;
-        private final String nickname;
+        private final String name;
+        private final GenderType gender;
+        private final LocalDate birthDate;
+        private final String phoneNumber;
 
-        public KakaoUserInfo(String kakaoId, String nickname) {
+        public KakaoUserInfo(String kakaoId, String name, GenderType gender,
+                             LocalDate birthDate, String phoneNumber) {
             this.kakaoId = kakaoId;
-            this.nickname = nickname;
+            this.name = name;
+            this.gender = gender;
+            this.birthDate = birthDate;
+            this.phoneNumber = phoneNumber;
         }
     }
 }

@@ -125,10 +125,21 @@ public class AuthService {
                     User newUser = User.builder()
                             .kakaoId(kakaoUserInfo.getKakaoId())
                             .loginId("kakao_" + kakaoUserInfo.getKakaoId())
-                            .name(kakaoUserInfo.getNickname())
+                            .name(kakaoUserInfo.getName())
+                            .gender(kakaoUserInfo.getGender())
+                            .birthDate(kakaoUserInfo.getBirthDate())
+                            .phoneNumber(kakaoUserInfo.getPhoneNumber())
                             .build();
                     return userRepository.save(newUser);
                 });
+
+        // Preserve profile fields the user entered; fill only data still missing.
+        user.updateProfile(
+                "카카오 사용자".equals(user.getName()) ? kakaoUserInfo.getName() : null,
+                user.getGender() == null ? kakaoUserInfo.getGender() : null,
+                user.getBirthDate() == null ? kakaoUserInfo.getBirthDate() : null,
+                user.getPhoneNumber() == null ? kakaoUserInfo.getPhoneNumber() : null,
+                null, null, null, null);
 
         // 3. JWT 토큰 발급 (신규 가입이면 isNewUser=true)
         return createAndSaveTokens(user, isNew[0]);
