@@ -2,6 +2,7 @@ package com.memora.server.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -14,6 +15,7 @@ import java.nio.file.Paths;
  * 예: /uploads/abc123.jpg → 로컬 uploads/abc123.jpg 파일 반환
  */
 @Configuration
+@Profile("!prod")
 public class WebConfig implements WebMvcConfigurer {
 
     @Value("${file.upload-dir:uploads}")

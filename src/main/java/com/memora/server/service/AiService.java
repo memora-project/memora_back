@@ -11,13 +11,10 @@ import com.memora.server.repository.DiaryRepository;
 import com.memora.server.repository.DiarySegmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
@@ -46,10 +43,8 @@ public class AiService {
     private final DiaryRepository diaryRepository;
     private final DiarySegmentRepository segmentRepository;
     private final AiClient aiClient;
+    private final FileService fileService;
     private final AiRateLimiter rateLimiter;
-
-    @Value("${file.upload-dir:uploads}")
-    private String uploadDir;
 
     /**
      * 단일 중간 기록(Segment)용 프롬프트 템플릿. 한 번의 기록 → 3~4문장 초안.
@@ -112,14 +107,9 @@ public class AiService {
 
         if (photoUrl != null) {
             try {
-                Path filePath = FileService.resolveUploadedFile(uploadDir, photoUrl);
-                if (filePath == null) {
-                    log.warn("업로드 폴더 밖 경로라 사진을 읽지 않음: {}", photoUrl);
-                } else if (Files.exists(filePath)) {
-                    base64Image = Base64.getEncoder().encodeToString(Files.readAllBytes(filePath));
-                    mimeType = Files.probeContentType(filePath);
-                    if (mimeType == null) mimeType = "image/jpeg";
-                }
+                var image = fileService.readImage(photoUrl, userId);
+                base64Image = Base64.getEncoder().encodeToString(image.bytes());
+                mimeType = image.contentType();
             } catch (IOException e) {
                 log.warn("사진 읽기 실패, 텍스트만으로 진행: {}", photoUrl, e);
             }

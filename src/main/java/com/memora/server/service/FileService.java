@@ -21,15 +21,18 @@ import java.util.UUID;
 public class FileService {
 
     private final Path uploadDir;
+    private final CloudinaryImageStorage cloudinaryStorage;
 
     /**
      * 생성자: 업로드 폴더 생성
      * application.yaml의 file.upload-dir 값을 읽어옴
      * 폴더가 없으면 자동 생성
      */
-    public FileService(@Value("${file.upload-dir:uploads}") String uploadDir) throws IOException {
+    public FileService(@Value("${file.upload-dir:uploads}") String uploadDir,
+                       CloudinaryImageStorage cloudinaryStorage) throws IOException {
+        this.cloudinaryStorage = cloudinaryStorage;
         this.uploadDir = Paths.get(uploadDir).toAbsolutePath();
-        Files.createDirectories(this.uploadDir);
+        if (!cloudinaryStorage.enabled()) Files.createDirectories(this.uploadDir);
     }
 
     /**
@@ -43,7 +46,7 @@ public class FileService {
      * @param file 프론트에서 보낸 이미지 파일
      * @return 저장된 이미지의 접근 URL (예: /uploads/abc123.jpg)
      */
-    public String uploadImage(MultipartFile file) throws IOException {
+    public String uploadImage(MultipartFile file, Integer userId) throws IOException {
         // 1. 빈 파일 체크
         if (file.isEmpty()) {
             throw new IllegalArgumentException("파일이 비어있습니다.");
@@ -63,6 +66,10 @@ public class FileService {
             throw new IllegalArgumentException("지원하지 않는 파일 형식입니다. (jpg, png, gif, webp만 가능)");
         }
 
+        if (cloudinaryStorage.enabled()) {
+            return cloudinaryStorage.upload(file.getBytes(), userId);
+        }
+
         // 3. UUID로 고유 파일명 생성 (예: 550e8400-e29b-41d4-a716-446655440000.jpg)
         String savedFilename = UUID.randomUUID() + "." + extension;
 
@@ -72,6 +79,17 @@ public class FileService {
 
         // 5. 접근 URL 반환
         return "/uploads/" + savedFilename;
+    }
+
+    public CloudinaryImageStorage.ImageData readImage(String path, Integer userId) throws IOException {
+        if (path.startsWith("/api/v1/files/images/")) {
+            return cloudinaryStorage.read(path, userId);
+        }
+        Path localPath = resolveUploadedFile(uploadDir.toString(), path);
+        if (localPath == null || !Files.isRegularFile(localPath)) throw new IOException("Image not found");
+        String mimeType = Files.probeContentType(localPath);
+        return new CloudinaryImageStorage.ImageData(Files.readAllBytes(localPath),
+                mimeType == null ? "image/jpeg" : mimeType);
     }
 
     /**

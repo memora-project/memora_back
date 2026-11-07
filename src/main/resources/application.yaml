@@ -41,6 +41,16 @@ server:
   address: 0.0.0.0
   port: 8080
 
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+
+management:
+  health:
+    mail:
+      enabled: false
+
 kakao:
   rest-api-key: ${KAKAO_REST_API_KEY}
   client-secret: ${KAKAO_CLIENT_SECRET}

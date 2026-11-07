@@ -10,13 +10,10 @@ import com.memora.server.repository.DiarySegmentRepository;
 import com.memora.server.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -35,14 +32,12 @@ public class QuizService {
     private final DiarySegmentRepository segmentRepository;
     private final UserRepository userRepository;
     private final AiClient aiClient;
+    private final FileService fileService;
     private final Random random = new Random();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 사용자별 최근 출제된 세그먼트 ID 기록 (같은 문제 반복 방지)
     private final java.util.concurrent.ConcurrentHashMap<Integer, java.util.Deque<Integer>> recentQuizzes = new java.util.concurrent.ConcurrentHashMap<>();
-
-    @Value("${file.upload-dir:uploads}")
-    private String uploadDir;
 
     private static final String QUIZ_SYSTEM_PROMPT = String.join(" ",
             "너는 70대 어르신의 기억력 훈련을 도와주는 퀴즈 출제자야.",
@@ -121,14 +116,9 @@ public class QuizService {
 
         if (photoUrl != null) {
             try {
-                Path filePath = FileService.resolveUploadedFile(uploadDir, photoUrl);
-                if (filePath == null) {
-                    log.warn("업로드 폴더 밖 경로라 사진을 읽지 않음: {}", photoUrl);
-                } else if (Files.exists(filePath)) {
-                    base64Image = Base64.getEncoder().encodeToString(Files.readAllBytes(filePath));
-                    mimeType = Files.probeContentType(filePath);
-                    if (mimeType == null) mimeType = "image/jpeg";
-                }
+                var image = fileService.readImage(photoUrl, userId);
+                base64Image = Base64.getEncoder().encodeToString(image.bytes());
+                mimeType = image.contentType();
             } catch (IOException e) {
                 log.warn("퀴즈용 사진 읽기 실패: {}", photoUrl, e);
             }
