@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:memora_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  task:
+    scheduling:
+      enabled: false
+  mail:
+    username: test@example.com
+    password: test-password
+
+kakao:
+  rest-api-key: test-kakao-key
+  client-secret: test-kakao-secret
+
+jwt:
+  secret: test-only-jwt-secret-that-is-at-least-thirty-two-bytes
+  access-token-validity: 3600000
+  refresh-token-validity: 86400000
+
+gemini:
+  api-key: test-gemini-key
+  endpoint: https://example.invalid/v1beta/models/{model}:generateContent
+  model: test-model
+  fallback-model: test-fallback-model
