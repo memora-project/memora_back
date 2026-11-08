@@ -14,11 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +41,6 @@ public class AiService {
     private final DiaryRepository diaryRepository;
     private final DiarySegmentRepository segmentRepository;
     private final AiClient aiClient;
-    private final FileService fileService;
     private final AiRateLimiter rateLimiter;
 
     /**
@@ -57,7 +54,7 @@ public class AiService {
             "말투는 경어체를 사용하며, {honorific}의 하루를 응원하는 따뜻한 분위기여야 해.",
             "입력으로 받은 [기분, 시간, 장소] 정보와 사용자가 남긴 [한 줄 메모]를 조합해",
             "3~4문장의 감성적인 일기 초안을 작성해줘.",
-            "메모가 없다면 사진 정보를 기반으로 따뜻한 상상을 더해줘.",
+            "메모가 없다면 기분, 시간, 장소 정보를 기반으로 따뜻하게 작성해줘.",
             "결과는 따로 머리말이나 인용부호 없이 일기 본문만 출력해."
     );
 
@@ -101,29 +98,10 @@ public class AiService {
         String systemPrompt = resolvePersona(SEGMENT_SYSTEM_PROMPT_TEMPLATE, user);
         String userPrompt = buildSegmentUserPrompt(segment);
 
-        // 사진이 있으면 Vision으로 호출, 없으면 텍스트만
-        String photoUrl = getSegmentPhotoUrl(segment);
-        String base64Image = null;
-        String mimeType = null;
-
-        if (photoUrl != null) {
-            try {
-                var image = fileService.readImageForAi(photoUrl, userId);
-                base64Image = Base64.getEncoder().encodeToString(image.bytes());
-                mimeType = image.contentType();
-            } catch (IOException e) {
-                log.warn("사진 읽기 실패, 텍스트만으로 진행: {}", photoUrl, e);
-            }
-        }
-
-        String draft;
-        try {
-            draft = aiClient.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
-        } catch (IllegalArgumentException visionFailure) {
-            if (base64Image == null) throw visionFailure;
-            log.warn("사진 기반 AI 초안 생성 실패, 텍스트 정보로 재시도: {}", visionFailure.getMessage());
-            draft = aiClient.chat(systemPrompt, userPrompt);
-        }
+        // Render 무료 환경에서는 원본 사진을 Base64로 Gemini Vision에 전달하면
+        // 응답 제한을 넘기기 쉽다. 이미 저장된 촬영 시간/장소/기분/메모를 사용해
+        // 텍스트 모델로 한 번만 생성하여 연결 시간과 메모리 사용량을 안정화한다.
+        String draft = aiClient.chat(systemPrompt, userPrompt);
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
@@ -292,18 +270,6 @@ public class AiService {
             case ANGRY -> "화나요";
             case PAIN -> "몸이 안 좋아요";
         };
-    }
-
-    // ------------------------------------------------------------- photo helper
-
-    /**
-     * 세그먼트의 첫 번째 사진 URL 가져오기 (없으면 null)
-     */
-    private String getSegmentPhotoUrl(DiarySegment segment) {
-        if (segment.getPhotos() != null && !segment.getPhotos().isEmpty()) {
-            return segment.getPhotos().get(0).getPhotoUrl();
-        }
-        return segment.getPhotoUrl();
     }
 
     // ------------------------------------------------------------- report AI comment
