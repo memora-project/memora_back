@@ -14,11 +14,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PreDestroy;
+
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * AI 일기 초안 생성 비즈니스 로직.
@@ -42,6 +50,10 @@ public class AiService {
     private final DiarySegmentRepository segmentRepository;
     private final AiClient aiClient;
     private final AiRateLimiter rateLimiter;
+    private final ExecutorService segmentAiExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+    /** 앱/프록시 연결이 끊기기 전에 반드시 초안을 반환하기 위한 서버 내부 제한. */
+    private static final long SEGMENT_AI_DEADLINE_SECONDS = 12;
 
     /**
      * 단일 중간 기록(Segment)용 프롬프트 템플릿. 한 번의 기록 → 3~4문장 초안.
@@ -96,28 +108,50 @@ public class AiService {
         String systemPrompt = resolvePersona(SEGMENT_SYSTEM_PROMPT_TEMPLATE, user);
         String userPrompt = buildSegmentUserPrompt(segment);
 
-        String draft;
-        if (segment.getDiary().getStatus() == com.memora.server.entity.enums.DiaryStatus.COMPLETED) {
-            // 최종 일기 생성 직후에는 Gemini 무료 할당량/응답 지연이 이어질 수 있다.
-            // 이미 확정된 일기에 추가 기록을 남기는 흐름은 외부 AI를 다시 기다리지
-            // 않고 저장된 메타데이터로 즉시 초안을 만들어 Network Error를 방지한다.
-            log.info("완료된 일기의 추가 기록은 즉시 초안으로 생성: diaryId={}, segmentId={}",
-                    diaryId, segmentId);
-            draft = buildReliableSegmentDraft(segment);
-        } else {
-            rateLimiter.check(userId);
-            try {
-                // Render 무료 환경에서는 사진 원본 대신 저장된 촬영 시간/장소/기분/메모를
-                // 텍스트 모델에 한 번만 전달해 연결 시간과 메모리 사용량을 안정화한다.
-                draft = aiClient.chat(systemPrompt, userPrompt);
-            } catch (IllegalArgumentException aiFailure) {
-                log.warn("추가 일기 AI 응답 실패, 즉시 초안으로 대체: {}", aiFailure.getMessage());
-                draft = buildReliableSegmentDraft(segment);
-            }
-        }
+        rateLimiter.check(userId);
+        String reliableDraft = buildReliableSegmentDraft(segment);
+        String draft = generateSegmentDraftWithinDeadline(
+                systemPrompt, userPrompt, reliableDraft, diaryId, segmentId);
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
+    }
+
+    /**
+     * 일기 상태와 관계없이 같은 제한시간을 적용한다. 최종일기 작성/삭제 후처럼
+     * Gemini가 연속 요청에 늦게 응답해도 12초 안에 안정적인 초안을 반환한다.
+     */
+    private String generateSegmentDraftWithinDeadline(
+            String systemPrompt,
+            String userPrompt,
+            String reliableDraft,
+            Integer diaryId,
+            Integer segmentId) {
+        Future<String> request = segmentAiExecutor.submit(
+                () -> aiClient.chat(systemPrompt, userPrompt));
+        try {
+            return request.get(SEGMENT_AI_DEADLINE_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            request.cancel(true);
+            log.warn("추가 일기 AI {}초 초과, 즉시 초안으로 대체: diaryId={}, segmentId={}",
+                    SEGMENT_AI_DEADLINE_SECONDS, diaryId, segmentId);
+            return reliableDraft;
+        } catch (ExecutionException e) {
+            log.warn("추가 일기 AI 응답 실패, 즉시 초안으로 대체: diaryId={}, segmentId={}, cause={}",
+                    diaryId, segmentId, e.getCause() == null ? e.getMessage() : e.getCause().getMessage());
+            return reliableDraft;
+        } catch (InterruptedException e) {
+            request.cancel(true);
+            Thread.currentThread().interrupt();
+            log.warn("추가 일기 AI 대기 중단, 즉시 초안으로 대체: diaryId={}, segmentId={}",
+                    diaryId, segmentId);
+            return reliableDraft;
+        }
+    }
+
+    @PreDestroy
+    void shutdownSegmentAiExecutor() {
+        segmentAiExecutor.shutdownNow();
     }
 
     /**
