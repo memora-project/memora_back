@@ -38,8 +38,22 @@ public class QuizService {
     private final Random random = new Random();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 사용자별 최근 출제된 세그먼트 ID 기록 (같은 문제 반복 방지)
-    private final java.util.concurrent.ConcurrentHashMap<Integer, java.util.Deque<Integer>> recentQuizzes = new java.util.concurrent.ConcurrentHashMap<>();
+    // 사용자별 최근 출제된 "세그먼트+문제 유형" 기록. 사진이 하나뿐이어도
+    // 날짜/기분/장소 문제를 순환해 같은 문제가 연속으로 나오지 않게 한다.
+    private final java.util.concurrent.ConcurrentHashMap<Integer, java.util.Deque<String>> recentQuizzes = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Integer, QuizType> lastQuizTypes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private enum QuizType {
+        DATE,
+        MOOD,
+        LOCATION
+    }
+
+    private record QuizCandidate(DiarySegment segment, QuizType type) {
+        String key() {
+            return segment.getSegmentId() + ":" + type.name();
+        }
+    }
 
     private static final String QUIZ_SYSTEM_PROMPT = String.join(" ",
             "너는 70대 어르신의 기억력 훈련을 도와주는 퀴즈 출제자야.",
@@ -76,28 +90,45 @@ public class QuizService {
             throw new IllegalArgumentException("최종 일기를 작성해야 퀴즈를 만들 수 있어요!");
         }
 
-        // 최근 출제된 문제 제외
-        java.util.Deque<Integer> recent = recentQuizzes.computeIfAbsent(userId, k -> new java.util.ArrayDeque<>());
-        List<DiarySegment> fresh = candidates.stream()
-                .filter(s -> !recent.contains(s.getSegmentId()))
+        List<QuizCandidate> quizCandidates = candidates.stream()
+                .flatMap(segment -> quizTypesFor(segment).stream()
+                        .map(type -> new QuizCandidate(segment, type)))
                 .toList();
 
-        // 전부 출제됐으면 기록 초기화 후 전체 후보에서 선택
+        // 최근 출제된 정확한 문제 조합 제외
+        java.util.Deque<String> recent = recentQuizzes.computeIfAbsent(userId, k -> new java.util.ArrayDeque<>());
+        List<QuizCandidate> fresh = quizCandidates.stream()
+                .filter(candidate -> !recent.contains(candidate.key()))
+                .toList();
+
+        // 모든 조합을 한 번씩 출제한 뒤에만 새 순환을 시작한다.
         if (fresh.isEmpty()) {
             recent.clear();
-            fresh = candidates;
+            fresh = quizCandidates;
         }
 
-        DiarySegment selected = fresh.get(random.nextInt(fresh.size()));
+        // 가능한 동안에는 직전 문제와 다른 유형을 우선해 체감상 같은 문제가
+        // 연속해서 나오는 것도 방지한다.
+        QuizType lastType = lastQuizTypes.get(userId);
+        List<QuizCandidate> differentType = fresh.stream()
+                .filter(candidate -> candidate.type() != lastType)
+                .toList();
+        if (!differentType.isEmpty()) {
+            fresh = differentType;
+        }
 
-        // 출제 기록 저장 (최대 10개)
-        recent.addLast(selected.getSegmentId());
-        if (recent.size() > 10) recent.pollFirst();
+        QuizCandidate quizCandidate = fresh.get(random.nextInt(fresh.size()));
+        DiarySegment selected = quizCandidate.segment();
 
-        // A photo without location metadata can still produce a factual quiz.
-        // Do not ask the AI to invent a place that the diary never recorded.
-        if (selected.getLocationName() == null || selected.getLocationName().isBlank()) {
+        recent.addLast(quizCandidate.key());
+        lastQuizTypes.put(userId, quizCandidate.type());
+        while (recent.size() > quizCandidates.size()) recent.pollFirst();
+
+        if (quizCandidate.type() == QuizType.DATE) {
             return dateQuiz(selected);
+        }
+        if (quizCandidate.type() == QuizType.MOOD) {
+            return moodQuiz(selected);
         }
 
         // 기록 데이터 조합
@@ -144,6 +175,7 @@ public class QuizService {
             String question = (String) parsed.get("question");
             List<String> choices = (List<String>) parsed.get("choices");
             String correctAnswer = (String) parsed.get("correctAnswer");
+            validateQuiz(question, choices, correctAnswer);
 
             return new QuizResponse(
                     selected.getSegmentId(),
@@ -157,6 +189,24 @@ public class QuizService {
             log.error("AI 퀴즈 파싱 실패, 기본 퀴즈로 대체: {}", aiResponse, e);
             // 파싱 실패 시 기본 위치 퀴즈로 폴백
             return fallbackQuiz(selected, candidates);
+        }
+    }
+
+    private List<QuizType> quizTypesFor(DiarySegment segment) {
+        List<QuizType> types = new ArrayList<>(List.of(QuizType.DATE, QuizType.MOOD));
+        if (segment.getLocationName() != null && !segment.getLocationName().isBlank()) {
+            types.add(QuizType.LOCATION);
+        }
+        return types;
+    }
+
+    private void validateQuiz(String question, List<String> choices, String correctAnswer) {
+        if (question == null || question.isBlank()
+                || choices == null || choices.size() != 4
+                || choices.stream().anyMatch(choice -> choice == null || choice.isBlank())
+                || choices.stream().distinct().count() != 4
+                || correctAnswer == null || !choices.contains(correctAnswer)) {
+            throw new IllegalArgumentException("AI가 유효하지 않은 퀴즈를 반환했습니다.");
         }
     }
 
@@ -205,18 +255,17 @@ public class QuizService {
                 .distinct()
                 .toList();
 
-        List<String> choices = new ArrayList<>();
-        List<String> defaults = List.of("대전 중구 대흥동", "대전 동구 용전동", "대전 유성구 봉명동");
-        int idx = 0;
-        for (int i = 0; i < 3; i++) {
-            if (i < otherLocations.size()) {
-                choices.add(otherLocations.get(i));
-            } else if (idx < defaults.size()) {
-                if (!defaults.get(idx).equals(correctAnswer)) choices.add(defaults.get(idx));
-                idx++;
-            }
-        }
-        choices.add(correctAnswer);
+        LinkedHashSet<String> uniqueChoices = new LinkedHashSet<>();
+        uniqueChoices.add(correctAnswer);
+        uniqueChoices.addAll(otherLocations);
+        uniqueChoices.addAll(List.of(
+                "대전 중구 대흥동",
+                "대전 동구 용전동",
+                "대전 유성구 봉명동",
+                "대전 서구 둔산동",
+                "대전 대덕구 송촌동"
+        ));
+        List<String> choices = new ArrayList<>(uniqueChoices.stream().limit(4).toList());
         Collections.shuffle(choices);
 
         return new QuizResponse(
@@ -248,5 +297,34 @@ public class QuizService {
                 correctAnswer,
                 date.toString()
         );
+    }
+
+    private QuizResponse moodQuiz(DiarySegment selected) {
+        String correctAnswer = moodLabel(selected.getMoodSnapshot());
+        List<String> choices = new ArrayList<>(List.of("최고에요", "평온해요", "슬퍼요", "몸이 안 좋아요"));
+        if (!choices.contains(correctAnswer)) {
+            choices.set(choices.size() - 1, correctAnswer);
+        }
+        Collections.shuffle(choices);
+        return new QuizResponse(
+                selected.getSegmentId(),
+                selected.getPhotoUrl(),
+                "이 사진을 기록할 때 기분은 어땠을까요?",
+                choices,
+                correctAnswer,
+                selected.getDiary().getTargetDate().toString()
+        );
+    }
+
+    private String moodLabel(com.memora.server.entity.enums.MoodType mood) {
+        if (mood == null) return "저도 모르겠어요";
+        return switch (mood) {
+            case GREAT -> "최고에요";
+            case CALM -> "평온해요";
+            case UNKNOWN -> "저도 모르겠어요";
+            case SAD -> "슬퍼요";
+            case ANGRY -> "화나요";
+            case PAIN -> "몸이 안 좋아요";
+        };
     }
 }

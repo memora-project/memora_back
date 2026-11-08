@@ -79,7 +79,8 @@ public class AiService {
             "말투는 경어체를 사용하며, {honorific}의 하루를 따뜻하게 정리해주는 분위기여야 해.",
             "입력으로 받은 여러 개의 중간 기록들을 시간 순서대로 자연스럽게 엮어서",
             "하루를 돌아보는 일기 형식으로 작성해줘.",
-            "반드시 일기 형태를 지켜: 날짜로 시작하고, 1인칭('오늘', '나는') 시점으로 하루를 서술해.",
+            "날짜는 서버가 정확한 값으로 붙이므로 본문에 날짜나 날짜 자리표시자를 쓰지 마.",
+            "1인칭('오늘', '나는') 시점으로 하루를 서술해.",
             "8~12문장 분량으로, 아침부터 저녁까지 시간 흐름에 따라 자연스럽게 이어지게 써줘.",
             "각 중간 기록의 한 줄 메모(있는 경우)와 AI 초안을 모두 참고해.",
             "결과는 따로 머리말이나 인용부호 없이 일기 본문만 출력해."
@@ -139,8 +140,9 @@ public class AiService {
         rateLimiter.check(userId);
 
         String systemPrompt = resolvePersona(FINAL_SYSTEM_PROMPT_TEMPLATE, diary.getUser());
-        String userPrompt = buildDiaryUserPrompt(segments);
-        String draft = aiClient.chat(systemPrompt, userPrompt);
+        String userPrompt = buildDiaryUserPrompt(diary, segments);
+        String aiBody = aiClient.chat(systemPrompt, userPrompt);
+        String draft = withExactDiaryDate(diary.getTargetDate(), aiBody);
 
         diary.updateAiDraft(draft);
         return DiaryResponse.from(diary);
@@ -225,9 +227,12 @@ public class AiService {
         return sb.toString();
     }
 
-    private String buildDiaryUserPrompt(List<DiarySegment> segments) {
+    private String buildDiaryUserPrompt(Diary diary, List<DiarySegment> segments) {
         StringBuilder sb = new StringBuilder();
-        sb.append("아래는 어르신이 하루 동안 남긴 ")
+        sb.append("일기 날짜: ")
+                .append(diary.getTargetDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                .append(" (이 날짜는 참고만 하고 결과 본문에는 쓰지 마세요.)\n")
+                .append("아래는 어르신이 하루 동안 남긴 ")
                 .append(segments.size())
                 .append("개의 중간 기록입니다. 시간 순서대로 자연스럽게 하나의 일기로 엮어주세요.\n\n");
         for (int i = 0; i < segments.size(); i++) {
@@ -253,6 +258,21 @@ public class AiService {
             sb.append('\n');
         }
         return sb.toString();
+    }
+
+    /**
+     * AI가 날짜를 추측하거나 202X년 X월 XX일 같은 자리표시자를 반환하더라도
+     * DB의 targetDate를 최종 일기 첫 줄에 강제로 사용한다.
+     */
+    static String withExactDiaryDate(LocalDate targetDate, String aiBody) {
+        String body = aiBody == null ? "" : aiBody.trim();
+        body = body.replaceFirst(
+                "(?s)^\\s*(?:#{1,6}\\s*)?(?:(?:\\d{4}|202X|YYYY|XXXX)년\\s*(?:\\d{1,2}|X{1,2}|MM)월\\s*(?:\\d{1,2}|X{1,2}|DD)일)(?:\\s*\\([^\\r\\n]*\\))?\\s*(?:\\r?\\n|$)",
+                ""
+        ).trim();
+
+        String dateHeader = targetDate.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일"));
+        return body.isBlank() ? dateHeader : dateHeader + "\n" + body;
     }
 
     private String moodLabel(MoodType m) {
