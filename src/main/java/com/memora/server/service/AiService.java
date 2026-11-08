@@ -108,7 +108,7 @@ public class AiService {
 
         if (photoUrl != null) {
             try {
-                var image = fileService.readImage(photoUrl, userId);
+                var image = fileService.readImageForAi(photoUrl, userId);
                 base64Image = Base64.getEncoder().encodeToString(image.bytes());
                 mimeType = image.contentType();
             } catch (IOException e) {
@@ -116,7 +116,14 @@ public class AiService {
             }
         }
 
-        String draft = aiClient.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
+        String draft;
+        try {
+            draft = aiClient.chatWithVision(systemPrompt, userPrompt, base64Image, mimeType);
+        } catch (IllegalArgumentException visionFailure) {
+            if (base64Image == null) throw visionFailure;
+            log.warn("사진 기반 AI 초안 생성 실패, 텍스트 정보로 재시도: {}", visionFailure.getMessage());
+            draft = aiClient.chat(systemPrompt, userPrompt);
+        }
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);

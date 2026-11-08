@@ -1,6 +1,7 @@
 package com.memora.server.service;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -54,6 +55,18 @@ public class CloudinaryImageStorage {
     }
 
     public ImageData read(String path, Integer userId) throws IOException {
+        return read(path, userId, false);
+    }
+
+    /**
+     * AI Vision에는 원본 대신 최대 1024px JPEG를 전달한다. 사용자에게 표시하는
+     * 원본은 건드리지 않으면서 Base64 요청 크기와 Render 메모리 사용량을 줄인다.
+     */
+    public ImageData readForAi(String path, Integer userId) throws IOException {
+        return read(path, userId, true);
+    }
+
+    private ImageData read(String path, Integer userId, boolean optimizeForAi) throws IOException {
         if (cloudinary == null) throw new IOException("Cloudinary is not configured");
         Matcher matcher = IMAGE_PATH.matcher(path);
         if (!matcher.matches()) throw new IOException("Invalid image path");
@@ -65,15 +78,22 @@ public class CloudinaryImageStorage {
         }
         String format = matcher.group(2);
         String publicId = "memora/" + userId + "/" + id;
-        String signedUrl = cloudinary.url().secure(true).resourceType("image")
-                .type("authenticated").signed(true).generate(publicId + "." + format);
+        var urlBuilder = cloudinary.url().secure(true).resourceType("image")
+                .type("authenticated").signed(true);
+        if (optimizeForAi) {
+            urlBuilder.transformation(new Transformation<>()
+                    .width(1024).height(1024).crop("limit")
+                    .quality("auto:good").fetchFormat("jpg"));
+        }
+        String signedUrl = urlBuilder.generate(publicId + "." + format);
         HttpRequest request = HttpRequest.newBuilder(URI.create(signedUrl))
                 .timeout(Duration.ofSeconds(20)).GET().build();
         try {
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() != 200) throw new IOException("Image retrieval failed: HTTP " + response.statusCode());
-            if (response.body().length > 10 * 1024 * 1024) throw new IOException("Image exceeds 10 MB");
-            String contentType = format.equals("jpg") ? "image/jpeg" : "image/" + format;
+            int maxBytes = optimizeForAi ? 3 * 1024 * 1024 : 10 * 1024 * 1024;
+            if (response.body().length > maxBytes) throw new IOException("Image exceeds size limit");
+            String contentType = optimizeForAi || format.equals("jpg") ? "image/jpeg" : "image/" + format;
             return new ImageData(response.body(), contentType);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

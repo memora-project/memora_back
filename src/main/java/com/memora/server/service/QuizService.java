@@ -155,7 +155,7 @@ public class QuizService {
 
         if (photoUrl != null) {
             try {
-                var image = fileService.readImage(photoUrl, userId);
+                var image = fileService.readImageForAi(photoUrl, userId);
                 base64Image = Base64.getEncoder().encodeToString(image.bytes());
                 mimeType = image.contentType();
             } catch (IOException e) {
@@ -164,7 +164,13 @@ public class QuizService {
         }
 
         // AI 호출
-        String aiResponse = aiClient.chatWithVision(QUIZ_SYSTEM_PROMPT, context.toString(), base64Image, mimeType);
+        String aiResponse;
+        try {
+            aiResponse = aiClient.chatWithVision(QUIZ_SYSTEM_PROMPT, context.toString(), base64Image, mimeType);
+        } catch (IllegalArgumentException e) {
+            log.warn("사진 기반 퀴즈 생성 실패, 기본 위치 퀴즈로 대체: {}", e.getMessage());
+            return fallbackQuiz(selected, candidates);
+        }
 
         // JSON 파싱
         try {

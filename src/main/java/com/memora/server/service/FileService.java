@@ -92,6 +92,13 @@ public class FileService {
                 mimeType == null ? "image/jpeg" : mimeType);
     }
 
+    public CloudinaryImageStorage.ImageData readImageForAi(String path, Integer userId) throws IOException {
+        if (path.startsWith("/api/v1/files/images/")) {
+            return cloudinaryStorage.readForAi(path, userId);
+        }
+        return readImage(path, userId);
+    }
+
     /**
      * 저장된 photoUrl(예: /uploads/abc.jpg)을 업로드 폴더 안의 실제 파일 경로로 변환.
      *
