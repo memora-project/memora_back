@@ -92,16 +92,29 @@ public class AiService {
     @Transactional
     public SegmentResponse generateSegmentDraft(Integer userId, Integer diaryId, Integer segmentId) {
         DiarySegment segment = findSegmentByIdAndUser(segmentId, diaryId, userId);
-        rateLimiter.check(userId);
-
         User user = segment.getDiary().getUser();
         String systemPrompt = resolvePersona(SEGMENT_SYSTEM_PROMPT_TEMPLATE, user);
         String userPrompt = buildSegmentUserPrompt(segment);
 
-        // Render 무료 환경에서는 원본 사진을 Base64로 Gemini Vision에 전달하면
-        // 응답 제한을 넘기기 쉽다. 이미 저장된 촬영 시간/장소/기분/메모를 사용해
-        // 텍스트 모델로 한 번만 생성하여 연결 시간과 메모리 사용량을 안정화한다.
-        String draft = aiClient.chat(systemPrompt, userPrompt);
+        String draft;
+        if (segment.getDiary().getStatus() == com.memora.server.entity.enums.DiaryStatus.COMPLETED) {
+            // 최종 일기 생성 직후에는 Gemini 무료 할당량/응답 지연이 이어질 수 있다.
+            // 이미 확정된 일기에 추가 기록을 남기는 흐름은 외부 AI를 다시 기다리지
+            // 않고 저장된 메타데이터로 즉시 초안을 만들어 Network Error를 방지한다.
+            log.info("완료된 일기의 추가 기록은 즉시 초안으로 생성: diaryId={}, segmentId={}",
+                    diaryId, segmentId);
+            draft = buildReliableSegmentDraft(segment);
+        } else {
+            rateLimiter.check(userId);
+            try {
+                // Render 무료 환경에서는 사진 원본 대신 저장된 촬영 시간/장소/기분/메모를
+                // 텍스트 모델에 한 번만 전달해 연결 시간과 메모리 사용량을 안정화한다.
+                draft = aiClient.chat(systemPrompt, userPrompt);
+            } catch (IllegalArgumentException aiFailure) {
+                log.warn("추가 일기 AI 응답 실패, 즉시 초안으로 대체: {}", aiFailure.getMessage());
+                draft = buildReliableSegmentDraft(segment);
+            }
+        }
 
         segment.updateAiDraft(draft);
         return SegmentResponse.from(segment);
@@ -210,6 +223,33 @@ public class AiService {
         sb.append("한 줄 메모: ")
                 .append(memo != null && !memo.isBlank() ? memo : "(메모 없음)");
         return sb.toString();
+    }
+
+    /** 외부 AI가 지연될 때도 사용자가 기록을 잃지 않도록 만드는 3~4문장 초안. */
+    static String buildReliableSegmentDraft(DiarySegment segment) {
+        String location = segment.getLocationName() != null && !segment.getLocationName().isBlank()
+                ? segment.getLocationName()
+                : "오늘의 장소";
+        String memo = segment.getUserContent();
+        String mood = switch (segment.getMoodSnapshot()) {
+            case GREAT -> "기분 좋은 마음";
+            case CALM -> "평온한 마음";
+            case UNKNOWN -> "말로 표현하기 어려운 마음";
+            case SAD -> "조금은 슬픈 마음";
+            case ANGRY -> "속상한 마음";
+            case PAIN -> "몸이 편하지 않은 상태";
+        };
+
+        StringBuilder draft = new StringBuilder();
+        draft.append("오늘 나는 ").append(location).append("에서 시간을 보냈다. ");
+        if (memo != null && !memo.isBlank()) {
+            draft.append(memo.trim());
+            if (!memo.trim().matches(".*[.!?。！？]$")) draft.append('.');
+            draft.append(' ');
+        }
+        draft.append("그 순간에는 ").append(mood).append("이 들었다. ")
+                .append("오늘의 이 순간을 사진과 함께 소중히 기억해 두고 싶다.");
+        return draft.toString();
     }
 
     private String buildDiaryUserPrompt(Diary diary, List<DiarySegment> segments) {
