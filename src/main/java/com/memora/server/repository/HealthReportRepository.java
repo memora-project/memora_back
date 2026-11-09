@@ -15,5 +15,6 @@ public interface HealthReportRepository extends JpaRepository<HealthReport, Inte
     List<HealthReport> findByUserOrderByEndDateDesc(User user);
 
     // 특정 유저의 특정 기간 리포트 조회 (전체 로드 방지)
-    Optional<HealthReport> findByUserAndStartDateAndEndDate(User user, LocalDate startDate, LocalDate endDate);
+    Optional<HealthReport> findFirstByUserAndStartDateAndEndDateOrderByReportIdDesc(
+            User user, LocalDate startDate, LocalDate endDate);
 }

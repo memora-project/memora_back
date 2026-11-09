@@ -7,7 +7,13 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "health_reports")
+@Table(
+        name = "health_reports",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_health_reports_user_period",
+                columnNames = {"user_id", "start_date", "end_date"}
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

@@ -116,7 +116,8 @@ public class ReportService {
         Aggregation agg = aggregateMoods(user, startDate, endDate);
 
         // 기존 리포트가 있으면 재사용, 없으면 새로 생성
-        HealthReport report = reportRepository.findByUserAndStartDateAndEndDate(user, startDate, endDate)
+        HealthReport report = reportRepository
+                .findFirstByUserAndStartDateAndEndDateOrderByReportIdDesc(user, startDate, endDate)
                 .orElseGet(() -> {
                     HealthReport newReport = HealthReport.builder()
                             .user(user)
