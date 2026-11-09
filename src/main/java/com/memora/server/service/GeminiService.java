@@ -24,7 +24,7 @@ import java.util.Map;
 public class GeminiService implements AiClient {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
-    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(35);
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(10);
 
     private final RestClient restClient = createRestClient();
 
@@ -77,7 +77,10 @@ public class GeminiService implements AiClient {
                         "parts", userParts
                 )),
                 "generationConfig", Map.of(
-                        "maxOutputTokens", 1500
+                        "maxOutputTokens", 512,
+                        "thinkingConfig", Map.of(
+                                "thinkingLevel", "low"
+                        )
                 )
         );
 

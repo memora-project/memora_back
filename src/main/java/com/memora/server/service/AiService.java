@@ -53,7 +53,7 @@ public class AiService {
     private final ExecutorService segmentAiExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     /** 앱/프록시 연결이 끊기기 전에 반드시 초안을 반환하기 위한 서버 내부 제한. */
-    private static final long SEGMENT_AI_DEADLINE_SECONDS = 12;
+    private static final long SEGMENT_AI_DEADLINE_SECONDS = 24;
 
     /**
      * 단일 중간 기록(Segment)용 프롬프트 템플릿. 한 번의 기록 → 3~4문장 초안.
